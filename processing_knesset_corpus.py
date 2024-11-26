@@ -2,9 +2,9 @@
 import zipfile
 import os
 import re
-#import pandas as pd 
-#from docx import Document
-#import docx
+import pandas as pd 
+from docx import Document
+
 #import json
 
 
@@ -25,8 +25,8 @@ numbers={
     'עשרים':20,
     'שלושים':30,
     'ארבעים':40,
-    'חמשים':50,
-    'ששים':60,
+    'חמישים':50,
+    'שישים':60,
     'שבעים':70,
     'שמונים':80,
     'תשעים':90,
@@ -87,21 +87,42 @@ def extract_protocol_data(file):
          
         return None
    
-# def extract_protocol_num(file):
+def extract_protocol_num(file_path):
 
-#     try:
+    # try:
 
-#         curr_doc=Document(file)
+      
+    # except Exception as e:
+    #     return -1 
+
+    curr_doc=Document(file_path)
+        
+
+    patterns=[
+        r"פרוטוקול מס['\"]?\s*(\d+)",
+        r"ישיבה מס['\"]?\s*(\d+)",
+        r"הישיבה\s+([\w-]+)\s+של"
+    ]
+
+    for par in curr_doc.paragraphs:
+        #print(par.text)
+
+        for pattern in patterns:
+            
+            match=re.search(pattern,par.text)
+            
+            if match:
+                
+                if pattern==patterns[2]:
+                    return from_hebrew_to_number(match.group(1))
+                else:
+                    return int(match.group(1))
+                
+    # no match found            
+    return -1 
 
 
-#         print (file)
-#         return 1
-    
-    
 
-
-#     except Exception as e :
-#         return -1
 
 
 def from_hebrew_to_number(text):
@@ -153,7 +174,15 @@ if __name__ == "__main__":
     text="חמש-מאות-ואחת-עשרה"
     print(from_hebrew_to_number(text))
 
-    path=r"Knesset_protocols\protocol_for_hw1\15_ptv_490845.docx"
+    #path=r"Knesset_protocols\protocol_for_hw1\15_ptv_490845.docx"
+    path=r"Knesset_protocols\protocol_for_hw1"
+    for file_name in os.listdir(path):
+        if file_name.endswith('.docx'):
+            print(file_name)
+            print(extract_protocol_num(os.path.join(path,file_name)))
+    #print(extract_protocol_num(path))
+    
+    
 
   
 
