@@ -34,10 +34,32 @@ numbers={
     'מאה':100,
     'מאתיים':200
 
+}
 
 
+postions_fields={ 
+
+    'הכנסת','הכלכלה','התכנון','החינוך','התרבות','התעשייה','המסחר','האוצר','איכות הסביבה','הספורט','המשפטים','העבודה',
+    'הרווחה','התחבורה','המשטרה','הבריאות','החקלאות',
+    'התקשורת','ראש הממשלה','הפנים','קליטת העלייה','התיירות','ענייני דתות','התעסוקה','ביטחון פנים','התשתיות הלאומיות',
+    'פיתוח הכפר','הבינוי','השיכון','המדע','הטכנולוגיה','ביטחון','החוץ','הבטיחות בדרכים',
+    'הגנת הסביבה','קליטת העלייה','נושאים אסטרטגיים','ענייני מודיעין','אזרחים ותיקים','המודיעין','האנרגיה','המים','העלייה','הקליטה','השירותים החברתיים',
+    'והתכנון','והתרבות','והמסחר','','','',''
+    '','','','','','','','','','','','','','','','','',''}
+
+
+
+postions_keywords={
+    'סגן','סגנית','שר','שרת','מזכיר','מזכירת','השר','השרה','המשנה','היו"ר','תשובת','אורח','אורחת','דובר','דוברת','יור'
 
 }
+
+skip={
+
+    'קריאה','קריאות','נכחו','סדר היום','חברי הוועדה','חברי','מוזמנים','ייעוץ משפטי','מנהלת הוועדה','רישום פרלמנטרי'
+
+}   
+
 
 
 #%% 
@@ -65,12 +87,14 @@ class Protocol:
         self.protocol_type= protocol_type
         self.file_name = file_name
 
+        #self.protocol_num=extract_protocol_num(file_path)
+
 
         # add a list of Sentence objects to the Protocol object 
         ##self.sentences = []
 
         
-#%%
+#%% task 1.1
 #Extract data from protocol file names 
 def extract_protocol_data(file):
 
@@ -86,6 +110,8 @@ def extract_protocol_data(file):
    else:
          
         return None
+   
+#%% task 1.2
    
 def extract_protocol_num(file_path):
 
@@ -105,7 +131,6 @@ def extract_protocol_num(file_path):
     ]
 
     for par in curr_doc.paragraphs:
-        #print(par.text)
 
         for pattern in patterns:
             
@@ -120,8 +145,6 @@ def extract_protocol_num(file_path):
                 
     # no match found            
     return -1 
-
-
 
 
 
@@ -156,6 +179,95 @@ def from_hebrew_to_number(text):
             
     return sum 
 
+#%% task 1.3
+
+def is_underlined(paragraph):
+
+    par_style=paragraph.style
+
+    while par_style:
+        if par_style and par_style.font.underline:
+            return True
+
+        par_style=par_style.base_style
+    for run in paragraph.runs:
+        if run.underline:
+            return True
+        
+    # no underline found  
+    return False
+
+
+def get_speakrs_names(file_path):
+
+    curr_doc=Document(file_path)
+
+    speakers=[]
+
+    for par in curr_doc.paragraphs:
+
+
+        # remove white spaces
+        match=re.match(r"^(.*?)\:",par.text.strip())
+
+        if match and is_underlined(par):
+
+            new_speaker=match.group(1).strip()
+            new_speaker=filter_speakrs_names(new_speaker)
+            
+
+            
+            
+            if new_speaker not in speakers and new_speaker is not None:
+                 speakers.append(new_speaker)
+
+    #filterd_names=filter_speakrs_names(speakers)
+    return speakers
+
+def filter_speakrs_names(name):
+
+
+    keywords=[]
+    fileds=[]
+
+    filtered_name=re.sub(r'\(.*?\)','',name).strip()
+    filtered_name= re.sub(r'<<.*?>>|<<.*?<<|>>.*?>>|<.*?>','',filtered_name)
+
+    if any(name.startswith(word) for word in skip ) :
+        return None 
+
+    for keyword in postions_keywords:
+
+        keyword=re.escape(keyword)
+        keywords.append(keyword)
+
+    
+    keyword_pattern=r'\b(?:' +'|'.join(keywords)+r')\b'
+
+
+    keyword_pattern=fr'{keyword_pattern}(?:\s*ל|\b[\s\-]*)?'
+
+
+    filtered_name=re.sub(keyword_pattern,'',filtered_name)
+
+    for field in postions_fields:
+        field=re.escape(field)
+        fileds.append(field)
+
+
+    
+    multy_feilds='|'.join("ל?"+ field +"(?:ו|ל|ול)?" for field in fileds)
+
+    fields_pattern="\\b(?:"+multy_feilds+")\\b"
+
+    filtered_name=re.sub(fields_pattern,'',filtered_name)
+     
+    ## remove () and << 
+    #filtered_name=re.sub(r'\(.*?\)','',filtered_name).strip()
+
+    
+    return filtered_name.strip()
+
 
 
 
@@ -174,13 +286,32 @@ if __name__ == "__main__":
     text="חמש-מאות-ואחת-עשרה"
     print(from_hebrew_to_number(text))
 
-    #path=r"Knesset_protocols\protocol_for_hw1\15_ptv_490845.docx"
+    # path=r"Knesset_protocols\protocol_for_hw1\15_ptv_490845.docx"
+    # path=r"Knesset_protocols\protocol_for_hw1"
+    # file_name="15_ptv_490845.docx"
+    # #print(extract_protocol_data(file_name))
+    # #print(extract_protocol_num(path))
+    # print(get_speakrs_names(os.path.join(path,file_name)))
+
+    
     path=r"Knesset_protocols\protocol_for_hw1"
     for file_name in os.listdir(path):
         if file_name.endswith('.docx'):
             print(file_name)
-            print(extract_protocol_num(os.path.join(path,file_name)))
-    #print(extract_protocol_num(path))
+            
+            for speaker in get_speakrs_names(os.path.join(path,file_name)):
+                print(speaker)
+                print("\n")
+
+    # speaker=['השר לקליטת העלייה','שר הכלכלה','סגן השר לביטחון','סגנית מזכיר הכנסת']
+
+    # filtered_speaker=filter_speakrs_names(speaker)
+    # print(filtered_speaker)
+
+
+    # for file_name in os.listdir(path):
+    #      if file_name.endswith('.docx'):        
+    #          print(extract_protocol_num(os.path.join(path,file_name)))
     
     
 
