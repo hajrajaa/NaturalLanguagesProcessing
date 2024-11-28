@@ -44,9 +44,9 @@ postions_fields={
     'התקשורת','ראש הממשלה','הפנים','קליטת העלייה','התיירות','ענייני דתות','התעסוקה','ביטחון פנים','התשתיות הלאומיות',
     'פיתוח הכפר','הבינוי','השיכון','המדע','הטכנולוגיה','ביטחון','החוץ','הבטיחות בדרכים',
     'הגנת הסביבה','קליטת העלייה','נושאים אסטרטגיים','ענייני מודיעין','אזרחים ותיקים','המודיעין','האנרגיה','המים','העלייה','הקליטה','השירותים החברתיים',
-    'והתכנון','והתרבות','והמסחר'
+    'הביטחון','הפרלמנט האירופי','התשתיות','פנים','הלאומיות',''
     # ,
-    # '','','',''
+    # 'והספורט','הספורט','והתרבות ',''
     # '','','','','','','','','','','','','','','','','',''
     }
 
@@ -54,7 +54,8 @@ postions_fields={
 
 postions_keywords={
     'סגן','סגנית','שר','שרת','מזכיר','מזכירת','השר','השרה','המשנה','היו"ר','תשובת','אורח','אורחת','דובר','דוברת','יור','פרופ','יו"ר','מר'
-    'מ"מ','היו”ר',
+    'מ"מ','היו”ר','במשרד','ד"ר','עו"ד','נצ"מ','ניצב','שופט','מל','נשיא','מ"מ','רשף','טפסר משנה','מר','פרופ\''
+
 
 
 }
@@ -62,9 +63,9 @@ postions_keywords={
 skip={
 
     'קריאה','קריאות','נכחו','סדר היום','חברי הוועדה','חברי','מוזמנים','ייעוץ משפטי','מנהלת הוועדה','רישום פרלמנטרי',
-    'משתתפים','נושא','רישום','מנהל/ת הוועדה','מנהל הוועדה','דיון'
-     ,'כותבת',
-    'פרלמנטארית','הצעות','הישבה','יום','הטקס','יועץ','קצרנית','מנחה','נוכחים','ברכות','הרצאה','סדר-היום','רשמה','הצגת'
+    'משתתפים','נושא','רישום','מנהל/ת הוועדה','מנהל הוועדה','דיון','יועצים','רכזת'
+    ,'כותבת','הצעת','מנהלי הוועדה','הוועדה','נרשם ע"י','הצעת','הספרות','רשמת','רצח','החלטת','החלטה','יועצת','הישבה ננעלה'
+    'פרלמנטארית','הצעות','הישיבה','יום','הטקס','יועץ','קצרנית','מנחה','נוכחים','ברכות','הרצאה','סדר-היום','רשמה','הצגת'
 
 }   
 
@@ -251,7 +252,7 @@ def filter_speakrs_names(name):
 
                            
 
-    if any( word in name for word in skip ) :
+    if any( word in filtered_name for word in skip ) or any(filtered_name.startswith(word)for word in skip) :
         return None 
 
     for keyword in postions_keywords:
@@ -259,26 +260,34 @@ def filter_speakrs_names(name):
         keyword=re.escape(keyword)
         keywords.append(keyword)
 
-    
-    keyword_pattern=r'\b(?:' +'|'.join(keywords)+r')\b'
-
-
-    keyword_pattern=fr'{keyword_pattern}(?:\s*ל|\b[\s\-]*)?'
-
-
-    filtered_name=re.sub(keyword_pattern,'',filtered_name)
-
     for field in postions_fields:
         field=re.escape(field)
         fileds.append(field)
 
+    
+    keyword_pattern=r'\b(?:' +'|'.join(keywords)+r')\b'
+    keyword_pattern=fr'{keyword_pattern}(?:\s*ל|\b[\s\-]*)?'
+    
+
+
+    multy_feilds='|'.join(f"(?:ו?ל?)?{field}(?:ול|,|ל|ו)?" for field in fileds)
+
+    fields_pattern=r'\b(?:'+ multy_feilds +r')\b'
+
+    prev_filtered_name=None
+    while filtered_name!=prev_filtered_name:
+        prev_filtered_name=filtered_name
+        filtered_name=re.sub(keyword_pattern,'',filtered_name)
+        filtered_name=re.sub(fields_pattern,'',filtered_name)
+        #filtered_name=re.sub(r'\b(?:ול|ו|,)+\b','',filtered_name)
+        filtered_name=re.sub(r'\s*,\s*','',filtered_name)
+        
+
+
+
+    #filtered_name=re.sub(fields_pattern,'',filtered_name)
 
     
-    multy_feilds='|'.join("ל?"+ field +"(?:ו|ל|ול)?" for field in fileds)
-
-    fields_pattern="\\b(?:"+multy_feilds+")\\b"
-
-    filtered_name=re.sub(fields_pattern,'',filtered_name)
      
     ## remove () and << 
     #filtered_name=re.sub(r'\(.*?\)','',filtered_name).strip()
@@ -301,8 +310,8 @@ if __name__ == "__main__":
 
     # protocol_files="knesset_protocols\protocol_for_hw1"
 
-    text="חמש-מאות-ואחת-עשרה"
-    print(from_hebrew_to_number(text))
+    # text="חמש-מאות-ואחת-עשרה"
+    # print(from_hebrew_to_number(text))
 
     # path=r"Knesset_protocols\protocol_for_hw1\15_ptv_490845.docx"
     # path=r"Knesset_protocols\protocol_for_hw1"
@@ -320,6 +329,12 @@ if __name__ == "__main__":
             for speaker in get_speakrs_names(os.path.join(path,file_name)):
                 print(speaker)
                 print("\n")
+
+    # speaker='סגן שרת החינוך והתרבות וליד גולדמן'
+    # speaker1=' סגן שר החינוך , התרבות והספורט'
+
+    # print(filter_speakrs_names(speaker))
+    # print(filter_speakrs_names(speaker1))
 
     # speaker=['השר לקליטת העלייה','שר הכלכלה','סגן השר לביטחון','סגנית מזכיר הכנסת']
 
