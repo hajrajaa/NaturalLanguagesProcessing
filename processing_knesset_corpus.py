@@ -71,97 +71,12 @@ skip={
 
 
 
-#%% 
-# Extract Zip file 
-def extract_zip(path,detination):
 
-    with zipfile.ZipFile(path,'r')as zip_ref:
-        zip_ref.extractall(detination)
-
-
-
-#%% classes 
-
-class Sentence:
-
-    def __init__(self):
-
-        self.words = []
-
-class Protocol:
-
-    def __init__(self,knesset_num,protocol_type,file_name):
-
-        self.knesset_num = knesset_num
-        self.protocol_type= protocol_type
-        self.file_name = file_name
-
-        #self.protocol_num=extract_protocol_num(file_path)
-
-
-        # add a list of Sentence objects to the Protocol object 
-        ##self.sentences = []
-
-        
-#%% task 1.1
-#Extract data from protocol file names 
-def extract_protocol_data(file):
-
-   valid_format=re.match(r'(\d{2})_(ptm|ptv)_(.+).docx',file)
-
-   if valid_format:
-       
-        knesset_num = int(valid_format.group(1))
-        protocol_type= "plenary" if valid_format.group(2)=="ptm" else "committee"
-        file_name=valid_format.group(3)
-        protocol=Protocol(knesset_num,protocol_type,file_name)
-        return protocol
-   else:
-         
-        return None
-   
-#%% task 1.2
-   
-def extract_protocol_num(file_path):
-
-    # try:
-
-      
-    # except Exception as e:
-    #     return -1 
-
-    curr_doc=Document(file_path)
-        
-
-    patterns=[
-        r"פרוטוקול מס['\"]?\s*(\d+)",
-        r"ישיבה מס['\"]?\s*(\d+)",
-        r"הישיבה\s+([\w-]+)\s+של"
-    ]
-
-    for par in curr_doc.paragraphs:
-
-        for pattern in patterns:
-            
-            match=re.search(pattern,par.text)
-            
-            if match:
-                
-                if pattern==patterns[2]:
-                    return from_hebrew_to_number(match.group(1))
-                else:
-                    return int(match.group(1))
-                
-    # no match found            
-    return -1 
-
-
-
+# to convert hebrew numbers to numbers
 def from_hebrew_to_number(text):
 
     # split the text by 's' or spaces
     parts=re.split(r'[-\s]',text)
-    print(parts)
 
     sum=0
     prev_num=0
@@ -188,8 +103,7 @@ def from_hebrew_to_number(text):
             
     return sum 
 
-#%% task 1.3
-
+# to check if the pargraph is underlined 
 def is_underlined(paragraph):
 
     par_style=paragraph.style
@@ -207,93 +121,202 @@ def is_underlined(paragraph):
     return False
 
 
-def get_speakrs_names(file_path):
 
-    curr_doc=Document(file_path)
+#%% classes 
 
-    speakers=[]
+class Sentence:
 
-    for par in curr_doc.paragraphs:
+    def __init__(self,speaker,text):
+        self.speaker=speaker
+        self.text=text
+    
+
+class Protocol:
+
+    def __init__(self,file_name,file_path):
 
 
-        # remove white spaces
-        match=re.match(r"^(.*?)\:",par.text.strip())
+        #data = Protocol.extract_protocol_data(file_name)
 
-        if match and is_underlined(par):
+        # if data is None:
+        #     raise ValueError('Invalid file name format')
+        
 
-            new_speaker=match.group(1).strip()
-            new_speaker=filter_speakrs_names(new_speaker)
+        #self.knesset_num,self.protocol_type,self.file_name=data
+    
+        
+
+        #self.protocol_num=Protocol.extract_protocol_num(file_path)
+
+        self.sentences=self.extract_sentences(file_path)
+
+
+        # #add a list of Sentence objects to the Protocol object 
+        # self.sentences = Sentence(file_path)
+
+        #self.speakers=Protocol.get_speakers_names(file_path)
+
+    #task 1.1
+    #Extract data from protocol file names
+    @staticmethod
+    def extract_protocol_data(file):
+
+        valid_format=re.match(r'(\d{2})_(ptm|ptv)_(.+).docx',file)
+
+        if valid_format:
+            
+                knesset_num = int(valid_format.group(1))
+                protocol_type= "plenary" if valid_format.group(2)=="ptm" else "committee"
+                file_name=valid_format.group(3)
+                return knesset_num,protocol_type,file_name
+        else:
+                
+                return None
+        
+
+    
+    
+    # task 1.2
+    @staticmethod 
+    def extract_protocol_num(file_path):
+
+        try:
+
+            curr_doc=Document(file_path)
             
 
-            
-            
-            if new_speaker not in speakers and new_speaker is not None:
-                 speakers.append(new_speaker)
+            patterns=[
+                r"פרוטוקול מס['\"]?\s*(\d+)",
+                r"ישיבה מס['\"]?\s*(\d+)",
+                r"הישיבה\s+([\w-]+)\s+של"
+            ]
 
-    #filterd_names=filter_speakrs_names(speakers)
-    return speakers
+            for par in curr_doc.paragraphs:
 
-def filter_speakrs_names(name):
-
-
-    keywords=[]
-    fileds=[]
-
-    
-    filtered_name=re.sub(r'\(.*?\)','',name).strip()
-
-    ## check later if it is better to include it in the list instead 
-
-    filtered_name= re.sub(r'<<.*?>>|<<.*?<<|>>.*?>>','',filtered_name)
-
-    
-    while filtered_name.startswith(('>','<')):
-        filtered_name=filtered_name[1:]
-
-                           
-
-    if any( word in filtered_name for word in skip ) or any(filtered_name.startswith(word)for word in skip) :
-        return None 
-
-    for keyword in postions_keywords:
-
-        keyword=re.escape(keyword)
-        keywords.append(keyword)
-
-    for field in postions_fields:
-        field=re.escape(field)
-        fileds.append(field)
+                for pattern in patterns:
+                    
+                    match=re.search(pattern,par.text)
+                    
+                    if match:
+                        
+                        if pattern==patterns[2]:
+                            return from_hebrew_to_number(match.group(1))
+                        else:
+                            return int(match.group(1))
+                        
+            # no match found            
+            return -1 
+        
+        except Exception as e:
+            return -1 
+        
 
     
-    keyword_pattern=r'\b(?:' +'|'.join(keywords)+r')\b'
-    keyword_pattern=fr'{keyword_pattern}(?:\s*ל|\b[\s\-]*)?'
+    def extract_sentences(self,file_path):
+
+        curr_doc=Document(file_path)
+
+        sentences=[]
+
+
+        for par_index,par in enumerate (curr_doc.paragraphs):
+
+            if is_underlined(par):
+                
+                
+                # remove white spaces
+                match=re.match(r"^(.*?)\:",par.text.strip())
+
+                if match :
+                    
+                    new_speaker=match.group(1).strip()
+
+                    if any( word in new_speaker for word in skip ) or any(new_speaker.startswith(word)for word in skip) :
+                        continue  
+
+                    text=self.extract_speaker_text(par_index+1,curr_doc)
+                    print(text)
+                    new_speaker=self.filter_speakrs_names(new_speaker)
+                    for sentence in sentences:
+                        if sentence.speaker==new_speaker:
+                             sentence.text+="\n"+ text
+                             break
+                   
+                    new_sentence=Sentence(new_speaker,text)
+                    sentences.append(new_sentence)
+
+                  
+        return sentences
     
+    @staticmethod
+    def extract_speaker_text(par_index,documnet):
+
+        speaker_text="" 
+
+        for par in documnet.paragraphs[par_index:]:
+
+            if is_underlined(par):
+                break
+            speaker_text+= par.text.strip() +"\n"
+
+        return speaker_text
+    
+    @staticmethod
+    def filter_speakrs_names(name):
 
 
-    multy_feilds='|'.join(f"(?:ו?ל?)?{field}(?:ול|,|ל|ו)?" for field in fileds)
+        keywords=[]
+        fileds=[]
 
-    fields_pattern=r'\b(?:'+ multy_feilds +r')\b'
+        
+        filtered_name=re.sub(r'\(.*?\)','',name).strip()
 
-    prev_filtered_name=None
-    while filtered_name!=prev_filtered_name:
-        prev_filtered_name=filtered_name
-        filtered_name=re.sub(keyword_pattern,'',filtered_name)
-        filtered_name=re.sub(fields_pattern,'',filtered_name)
-        #filtered_name=re.sub(r'\b(?:ול|ו|,)+\b','',filtered_name)
-        filtered_name=re.sub(r'\s*,\s*','',filtered_name)
+
+        ## check later if it is better to include it in the list instead 
+
+        filtered_name= re.sub(r'<<.*?>>|<<.*?<<|>>.*?>>','',filtered_name)
+
+        
+        while filtered_name.startswith(('>','<')):
+            filtered_name=filtered_name[1:]
+
+
+
+        for keyword in postions_keywords:
+
+            keyword=re.escape(keyword)
+            keywords.append(keyword)
+
+        for field in postions_fields:
+            field=re.escape(field)
+            fileds.append(field)
+
+        
+        keyword_pattern=r'\b(?:' +'|'.join(keywords)+r')\b'
+        keyword_pattern=fr'{keyword_pattern}(?:\s*ל|\b[\s\-]*)?'
         
 
 
+        multy_feilds='|'.join(f"(?:ו?ל?)?{field}(?:ול|,|ל|ו)?" for field in fileds)
 
-    #filtered_name=re.sub(fields_pattern,'',filtered_name)
+        fields_pattern=r'\b(?:'+ multy_feilds +r')\b'
 
-    
-     
-    ## remove () and << 
-    #filtered_name=re.sub(r'\(.*?\)','',filtered_name).strip()
+        prev_filtered_name=None
+        while filtered_name!=prev_filtered_name:
+            prev_filtered_name=filtered_name
+            filtered_name=re.sub(keyword_pattern,'',filtered_name)
+            filtered_name=re.sub(fields_pattern,'',filtered_name)
+            filtered_name=re.sub(r'\s*,\s*','',filtered_name)
+            
+
+            
+        # remove extra white spaces
+        filtered_name=re.sub(r'\s{2,}','',filtered_name)
 
 
-    return filtered_name.strip()
+        return filtered_name.strip()
+                       
+                      
 
 
 
@@ -301,34 +324,20 @@ def filter_speakrs_names(name):
 #%% Main code
 
 if __name__ == "__main__":
-
-    # zip_path="knesset_protocols.zip"
-
-    # extract_to="knesset_protocols"
-
-    # extract_zip(zip_path,extract_to)
-
-    # protocol_files="knesset_protocols\protocol_for_hw1"
-
-    # text="חמש-מאות-ואחת-עשרה"
-    # print(from_hebrew_to_number(text))
-
-    # path=r"Knesset_protocols\protocol_for_hw1\15_ptv_490845.docx"
-    # path=r"Knesset_protocols\protocol_for_hw1"
-    # file_name="15_ptv_490845.docx"
-    # #print(extract_protocol_data(file_name))
-    # #print(extract_protocol_num(path))
-    # print(get_speakrs_names(os.path.join(path,file_name)))
-
     
     path=r"Knesset_protocols\protocol_for_hw1"
     for file_name in os.listdir(path):
         if file_name.endswith('.docx'):
             print(file_name)
+            protocol=Protocol(file_name,os.path.join(path,file_name))
+            #print(protocol.knesset_num,protocol.protocol_type,protocol.file_name)
             
-            for speaker in get_speakrs_names(os.path.join(path,file_name)):
-                print(speaker)
-                print("\n")
+            for sentence in protocol.sentences:
+                if sentence in None:
+                    print("looooooooooooo")
+                print("speaker:",sentence.speaker)
+                print("text:",sentence.text)
+                
 
     # speaker='סגן שרת החינוך והתרבות וליד גולדמן'
     # speaker1=' סגן שר החינוך , התרבות והספורט'
