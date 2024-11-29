@@ -126,9 +126,83 @@ def is_underlined(paragraph):
 
 class Sentence:
 
-    def __init__(self,speaker,text):
-        self.speaker=speaker
-        self.text=text
+    def __init__(self,speaker_name,sentence_text):
+        self.speaker_name=speaker_name
+        self.sentence_text=sentence_text
+        self.length=len(sentence_text)
+        self.toknes=self.get_toknes()
+
+    def get_toknes(self):
+
+        punctuation={'.',',','?','!',';',':','"',"'",'(',')','-'}
+        exluded_punc={':','\\','/','-'}
+        toknes=[]
+
+        curr_tokne=""
+        length=len(self.sentence_text)
+
+        for i,char in enumerate(self.sentence_text):
+
+            # hancle special cases 
+            #(7,500)
+            if char=="," and i>0 and i+1 < length and self.sentence_text[i-1].isdigit() and self.sentence_text[i+1].isdigit():
+                curr_tokne+=char
+                continue
+
+            # case : 7:00
+            if char.isdigit() and i+1< length and self.sentence_text[i+1] in exluded_punc:
+                curr_tokne+=char 
+                continue
+            # case: 05.
+            elif char in exluded_punc and curr_tokne and curr_tokne[-1].isdigit():
+                curr_tokne+=char
+                continue
+            #.05
+            elif char.isdigit() and curr_tokne and curr_tokne[-1] in exluded_punc:
+                curr_tokne+=char
+                continue
+            # case : מ"מ
+            elif char in['”','"'] and i>0 and i+1<length and (
+                '\u0590'<=self.sentence_text[i-1]<='\u05EA') and ('\u0590'<=self.sentence_text[i+1]<='\u05EA'):
+                curr_tokne+=char
+                continue
+
+
+            if char in punctuation:
+
+                if curr_tokne:
+                    toknes.append(curr_tokne)
+                    curr_tokne=""
+
+
+                # set the punctuation as a individual tokne 
+                toknes.append(char)
+
+            elif char.isspace():
+                
+                if curr_tokne:
+                    toknes.append(curr_tokne)
+                    curr_tokne=""
+                #toknes.append(" ")
+            else:
+                    curr_tokne+= char 
+
+        ## add the last toknee 
+        if curr_tokne:
+            toknes.append(curr_tokne)
+
+        return toknes 
+    
+
+
+        
+
+            
+
+
+
+        
+
     
 
 class Protocol:
@@ -136,19 +210,21 @@ class Protocol:
     def __init__(self,file_name,file_path):
 
 
-        #data = Protocol.extract_protocol_data(file_name)
-
-        # if data is None:
-        #     raise ValueError('Invalid file name format')
+        data = Protocol.extract_protocol_data(file_name)
         
 
-        #self.knesset_num,self.protocol_type,self.file_name=data
+        self.knesset_num,self.protocol_type,self.file_name=data
     
         
 
-        #self.protocol_num=Protocol.extract_protocol_num(file_path)
+        self.protocol_num=Protocol.extract_protocol_num(file_path)
 
-        self.sentences=self.extract_sentences(file_path)
+        self.speakers_text=self.extract_sentences(file_path)
+
+        self.all_sentences=self.get_all_sentences()
+
+
+        #self.sentences=self.extract_sentences(file_path)
 
 
         # #add a list of Sentence objects to the Protocol object 
@@ -172,8 +248,7 @@ class Protocol:
         else:
                 
                 return None
-        
-
+    
     
     
     # task 1.2
@@ -211,18 +286,17 @@ class Protocol:
             return -1 
         
 
-    
+    # task 1.3 
     def extract_sentences(self,file_path):
 
         curr_doc=Document(file_path)
 
-        sentences=[]
+        speakers_text={}
 
 
         for par_index,par in enumerate (curr_doc.paragraphs):
 
             if is_underlined(par):
-                
                 
                 # remove white spaces
                 match=re.match(r"^(.*?)\:",par.text.strip())
@@ -235,18 +309,16 @@ class Protocol:
                         continue  
 
                     text=self.extract_speaker_text(par_index+1,curr_doc)
-                    print(text)
+                    #print(text)
                     new_speaker=self.filter_speakrs_names(new_speaker)
-                    for sentence in sentences:
-                        if sentence.speaker==new_speaker:
-                             sentence.text+="\n"+ text
-                             break
-                   
-                    new_sentence=Sentence(new_speaker,text)
-                    sentences.append(new_sentence)
 
+                    if new_speaker in speakers_text:
+                        speakers_text[new_speaker]+="\n"+text
+                    else:
+                        speakers_text[new_speaker]=text
+                   
                   
-        return sentences
+        return speakers_text
     
     @staticmethod
     def extract_speaker_text(par_index,documnet):
@@ -315,8 +387,101 @@ class Protocol:
 
 
         return filtered_name.strip()
+    
+    # task 1.4 
+    def get_all_sentences(self):
+
+        all_sentences=[]
+
+        for speaker,text in self.speakers_text.items():
+
+            sentences=Protocol.divide_text_into_sentences(text)
+
+            for sentence in sentences:
+
+                all_sentences.append(Sentence(speaker,sentence))
+
+        return all_sentences 
+
                        
-                      
+    @staticmethod                 
+    def divide_text_into_sentences(text):
+
+        beg_signs=['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ']
+
+        end_signs=['.','?','!','".','--','---']
+
+        prev_sent=""
+
+        sentences=[]
+
+        # remove extra white spaces
+        text=re.sub(r'\s{2,}','',text)
+
+        for char in text:
+            prev_sent+=char
+
+            #prev_sent=prev_sent.strip()
+
+            if char in end_signs:
+
+                
+                if  prev_sent[-2].isdigit():
+                    continue
+                elif char=='.' and prev_sent[-2] in beg_signs:
+                    continue
+                elif Protocol.filter_sentence(prev_sent):
+                    sentences.append(prev_sent)
+                    prev_sent=""
+
+        if prev_sent and Protocol.filter_sentence(prev_sent):
+              sentences.append(prev_sent)
+
+        return sentences
+    
+    # task 1.5
+    @staticmethod 
+    def filter_sentence(sentence):
+
+        invalid_signs=['---','- - -','--','- -','...','. . .','__','___','_ _','_ _ _']
+        
+        # short sentence 
+        if len(sentence)<=10:
+            return False
+        # invalid signs 
+        elif any(sign in sentence for sign in  invalid_signs):
+            return False
+        
+        # word in english 
+        elif re.match(r"^[a-zA-Z\-']+$",sentence):
+            return False 
+        
+        # Toooo Doooooo# 
+        # check if there is no hebrew charcters in the sentence 
+        elif not re.search(r'[א-ת]',sentence):
+            return False 
+    
+        return True 
+    
+
+    # task 1.6 
+
+
+        
+
+
+
+
+
+            
+
+
+
+        
+
+
+
+
 
 
 
@@ -326,17 +491,44 @@ class Protocol:
 if __name__ == "__main__":
     
     path=r"Knesset_protocols\protocol_for_hw1"
-    for file_name in os.listdir(path):
-        if file_name.endswith('.docx'):
-            print(file_name)
-            protocol=Protocol(file_name,os.path.join(path,file_name))
-            #print(protocol.knesset_num,protocol.protocol_type,protocol.file_name)
+
+
+    # file_name="17_ptm_533398.docx"
+
+    # protocol=Protocol(file_name,os.path.join(path,file_name))
+    # for sentence in protocol.all_sentences:
+    #     print("speaker:",sentence.speaker_name)
+    #     print("text:",sentence.sentence_text)
+
+    text="לחבר הכנסת - הפתרון הנקודתי שנתנו לפתחת-ניצנה,"
+    text1="המחיר הוא 6,500 ש\"ח, התאריך: 01/01/2024, והשעה 10:50."
+    s=Sentence("לולו",text1)
+
+    toknes=Sentence.get_toknes(s)
+    print(toknes)
+
+
+    # text="ממנה?\""
+
+    # # text="א. אני רגאגאאגאג"
+    # for sentence in Protocol.divide_text_into_sentences(text):
+    #     print(sentence)
+    #     print("\n")
+
+    #print(Protocol.divide_text_into_sentences(text))
+
+
+    # for file_name in os.listdir(path):
+    #     if file_name.endswith('.docx'):
+    #         print(file_name)
+    #         protocol=Protocol(file_name,os.path.join(path,file_name))
+    #         #print(protocol.knesset_num,protocol.protocol_type,protocol.file_name)
             
-            for sentence in protocol.sentences:
-                if sentence in None:
-                    print("looooooooooooo")
-                print("speaker:",sentence.speaker)
-                print("text:",sentence.text)
+    #         for sentence in protocol.sentences:
+    #             if sentence in None:
+    #                 print("looooooooooooo")
+    #             print("speaker:",sentence.speaker)
+    #             print("text:",sentence.text)
                 
 
     # speaker='סגן שרת החינוך והתרבות וליד גולדמן'
