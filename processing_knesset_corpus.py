@@ -44,7 +44,7 @@ postions_fields={
     'התקשורת','ראש הממשלה','הפנים','קליטת העלייה','התיירות','ענייני דתות','התעסוקה','ביטחון פנים','התשתיות הלאומיות',
     'פיתוח הכפר','הבינוי','השיכון','המדע','הטכנולוגיה','ביטחון','החוץ','הבטיחות בדרכים',
     'הגנת הסביבה','קליטת העלייה','נושאים אסטרטגיים','ענייני מודיעין','אזרחים ותיקים','המודיעין','האנרגיה','המים','העלייה','הקליטה','השירותים החברתיים',
-    'הביטחון','הפרלמנט האירופי','התשתיות','פנים','הלאומיות',''
+    'הביטחון','הפרלמנט האירופי','התשתיות','פנים','הלאומיות','ועדת'
     # ,
     # 'והספורט','הספורט','והתרבות ',''
     # '','','','','','','','','','','','','','','','','',''
@@ -53,8 +53,9 @@ postions_fields={
 
 
 postions_keywords={
-    'סגן','סגנית','שר','שרת','מזכיר','מזכירת','השר','השרה','המשנה','היו"ר','תשובת','אורח','אורחת','דובר','דוברת','יור','פרופ','יו"ר','מר'
-    'מ"מ','היו”ר','במשרד','ד"ר','עו"ד','נצ"מ','ניצב','שופט','מל','נשיא','מ"מ','רשף','טפסר משנה','מר','פרופ\''
+    'סגן','סגנית','שר','שרת','מזכיר','מזכירת','השר','השרה','המשנה','יהיו"ר','היו"ר','תשובת','אורח','אורחת','דובר','דוברת','יור','יו"ר','מר'
+    'מ"מ','היו”ר','במשרד','ד"ר','עו"ד','נצ"מ','ניצב','שופט','מל','נשיא','מ"מ','רשף','טפסר משנה','מר','דובר_המשך',"פרופ'","'פרופ"
+    ,'1היו"ר','ייור','היו"רי','<< יור >>'
 
 
 
@@ -65,7 +66,7 @@ skip={
     'קריאה','קריאות','נכחו','סדר היום','חברי הוועדה','חברי','מוזמנים','ייעוץ משפטי','מנהלת הוועדה','רישום פרלמנטרי',
     'משתתפים','נושא','רישום','מנהל/ת הוועדה','מנהל הוועדה','דיון','יועצים','רכזת'
     ,'כותבת','הצעת','מנהלי הוועדה','הוועדה','נרשם ע"י','הצעת','הספרות','רשמת','רצח','החלטת','החלטה','יועצת','הישבה ננעלה'
-    'פרלמנטארית','הצעות','הישיבה','יום','הטקס','יועץ','קצרנית','מנחה','נוכחים','ברכות','הרצאה','סדר-היום','רשמה','הצגת'
+    'פרלמנטארית','הצעות','הישיבה','יום','הטקס','יועץ','קצרנית','מנחה','נוכחים','ברכות','הרצאה','סדר-היום','רשמה','הצגת','פתיחה'
 
 }   
 
@@ -121,6 +122,25 @@ def is_underlined(paragraph):
     return False
 
 
+def is_bold(paragraph):
+    
+    par_style=paragraph.style
+
+    while par_style:
+        if par_style and par_style.font.bold:
+            return True
+
+        par_style=par_style.base_style
+    for run in paragraph.runs:
+        if run.bold:
+            return True
+        
+    # not bold paragraph 
+    return False
+
+    
+
+
 
 #%% classes 
 
@@ -144,7 +164,7 @@ class Sentence:
 
         for i,char in enumerate(self.sentence_text):
 
-            # hancle special cases 
+            # handle special cases 
             #(7,500)
             if char=="," and i>0 and i+1 < length and self.sentence_text[i-1].isdigit() and self.sentence_text[i+1].isdigit():
                 curr_tokne+=char
@@ -289,7 +309,7 @@ class Protocol:
 
         for par_index,par in enumerate (curr_doc.paragraphs):
 
-            if is_underlined(par):
+            if is_underlined(par) :
                 
                 # remove white spaces
                 match=re.match(r"^(.*?)\:",par.text.strip())
@@ -298,27 +318,30 @@ class Protocol:
                     
                     new_speaker=match.group(1).strip()
 
-                    if any( word in new_speaker for word in skip ) or any(new_speaker.startswith(word)for word in skip) :
-                        continue  
 
                     text=self.extract_speaker_text(par_index+1,curr_doc)
                     #print(text)
+                    
                     new_speaker=self.filter_speakrs_names(new_speaker)
+                    if new_speaker is not None:
 
-                    if  not Protocol.filter_sentence(text):
-                        continue
+                        # if  not Protocol.filter_sentence(text):
+                        #     continue
 
-                    sentences=Protocol.divide_text_into_sentences(text)
+                        
 
-                    for sentence in sentences:
-                        if Protocol.filter_sentence(sentence):
+                        sentences=Protocol.divide_text_into_sentences(text)
+                       
 
-                            new_sentence=Sentence(new_speaker,sentence)
-                            if len(new_sentence.toknes)> 4:
-                                speakers_text.append(new_sentence)
+                        for sentence in sentences:
+                            if Protocol.filter_sentence(sentence) :
+
+                                new_sentence=Sentence(new_speaker,sentence)
+                                if len(new_sentence.toknes)> 4:
+                                    speakers_text.append(new_sentence)
 
 
-                    speakers_text.append(Sentence(new_speaker,text))
+                    #speakers_text.append(Sentence(new_speaker,text))
 
                     # if new_speaker in speakers_text:
                     #     speakers_text[new_speaker]+="\n"+text
@@ -335,9 +358,12 @@ class Protocol:
 
         for par in documnet.paragraphs[par_index:]:
 
-            if is_underlined(par):
+            if par.text.startswith("\"") and par.text.endswith("\""):
                 break
-            speaker_text+= par.text.strip() +"\n"
+
+            if is_underlined(par) or is_bold(par):
+                break
+            speaker_text+= par.text.strip() 
 
         return speaker_text
     
@@ -345,49 +371,54 @@ class Protocol:
     def filter_speakrs_names(name):
 
 
-        keywords=[]
-        fileds=[]
-
         
+        fileds=[]
+        sorted_keywords= sorted(postions_keywords,key=len,reverse=True)
+
         filtered_name=re.sub(r'\(.*?\)','',name).strip()
 
 
         ## check later if it is better to include it in the list instead 
 
-        filtered_name= re.sub(r'<<.*?>>|<<.*?<<|>>.*?>>','',filtered_name)
+        filtered_name= re.sub(r'<<.*?>>|<<.*?<<|>>.*?>>','',filtered_name.strip())
+
+
+        
+        if any(filtered_name.startswith(word)for word in skip) or any( word in filtered_name for word in skip )  :
+             return None   
 
         
         while filtered_name.startswith(('>','<')):
             filtered_name=filtered_name[1:]
+            if not filtered_name:
+                return None
 
+     
+        for keyword in sorted_keywords:
 
+            #pattern=rf'\b{re.escape(keyword)}\b'
+            pattern=rf'(?:^|\s){re.escape(keyword)}(?:\s|$)'
+            if re.search(pattern,filtered_name):
+               filtered_name=re.sub(pattern,'',filtered_name).strip()
+               break
+    
+            
 
-        for keyword in postions_keywords:
-
-            keyword=re.escape(keyword)
-            keywords.append(keyword)
 
         for field in postions_fields:
             field=re.escape(field)
             fileds.append(field)
 
-        
-        keyword_pattern=r'\b(?:' +'|'.join(keywords)+r')\b'
-        keyword_pattern=fr'{keyword_pattern}(?:\s*ל|\b[\s\-]*)?'
-        
-
+    
 
         multy_feilds='|'.join(f"(?:ו?ל?)?{field}(?:ול|,|ל|ו)?" for field in fileds)
 
         fields_pattern=r'\b(?:'+ multy_feilds +r')\b'
+        
+        
+        filtered_name=re.sub(fields_pattern,'',filtered_name)
+        filtered_name=re.sub(r'\s*,\s*','',filtered_name)
 
-        prev_filtered_name=None
-        while filtered_name!=prev_filtered_name:
-            prev_filtered_name=filtered_name
-            filtered_name=re.sub(keyword_pattern,'',filtered_name)
-            filtered_name=re.sub(fields_pattern,'',filtered_name)
-            filtered_name=re.sub(r'\s*,\s*','',filtered_name)
-            
 
             
         # remove extra white spaces
@@ -411,61 +442,89 @@ class Protocol:
 
     #     return all_sentences 
 
-                       
+    def get_all_speakers(self):
+
+        speakers=[]
+
+        for sentence in self.speakers_text:
+            if sentence.speaker_name not in speakers:
+                speakers.append(sentence.speaker_name)
+
+        return speakers 
+
+ 
+
+
+
     @staticmethod                 
     def divide_text_into_sentences(text):
+         
+         beg_signs=['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ']
 
-        beg_signs=['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ']
+         end_signs=['.','?','!','".','--','---']
 
-        end_signs=['.','?','!','".','--','---']
+         prev_sent=""
 
-        prev_sent=""
+         sentences=[]
 
-        sentences=[]
+         # remove extra white spaces
+         text=re.sub(r'\s{2,}','',text)
 
-        # remove extra white spaces
-        text=re.sub(r'\s{2,}','',text)
+         i=0
+         while i< len(text):
+             char=text[i]
+             prev_sent+= char 
+             
+             if any (prev_sent.endswith(sign) for sign in end_signs):
+                 
+                 if len(prev_sent)>1 and prev_sent[-2].isdigit() and (i+1 <len(text) and ((text[i+1].isdigit()) or (text[i+1] in "".join(end_signs)))):
+                        i+=1
+                        continue
+                 if 1<len(prev_sent)<=2 and char=='.' and prev_sent[-2] in beg_signs:
+                        i+=1
+                        continue
+                 if Protocol.filter_sentence(prev_sent):
+                     sentences.append(prev_sent)
+                 prev_sent=""
+             i+=1
+         if prev_sent:
+             if Protocol.filter_sentence(prev_sent):
+                     sentences.append(prev_sent)
+         return sentences
+    
+        
 
-        for char in text:
-            prev_sent+=char
+              
 
-            #prev_sent=prev_sent.strip()
 
-            if char in end_signs:
 
-                if len(prev_sent)>1 and  prev_sent[-2].isdigit():
-                    # to end with a year or date 
-                    ########## checkkkkk 2a5r 2shy 3mltyyyyy
-                    if re.search(r'\d{4}\.$',prev_sent) or re.search(r'\d{1,2}/\d{1,2}/\d{4}',prev_sent):
-                        pass
-                    else:
-                         continue
-                elif len(prev_sent) >1 and char=='.' and prev_sent[-2] in beg_signs:
-                    continue
-                elif Protocol.filter_sentence(prev_sent):
-                    sentences.append(prev_sent)
-                    prev_sent=""
 
-        if prev_sent and Protocol.filter_sentence(prev_sent):
-              sentences.append(prev_sent)
 
-        return sentences
     
     # task 1.5
     @staticmethod 
     def filter_sentence(sentence):
 
-        invalid_signs=['---','- - -','--','- -','...','. . .','__','___','_ _','_ _ _']
+        invalid_signs=['---','- - -','--','- -','...','. . .','__','___','_ _','_ _ _','<<','>>']
         
         # short sentence 
-        if len(sentence)<=10:
+        if len(sentence)<=2:
             return False
         # invalid signs 
         elif any(sign in sentence for sign in  invalid_signs):
             return False
         
+        #sentence between ()
+        elif sentence.startswith("(") and sentence.endswith(")"):
+            return False
+        
+        # sentence between ""
+        elif sentence.startswith("\"") and sentence.endswith("\""):
+            return False
+                                                             
+        
         # word in english 
-        elif re.match(r"^[a-zA-Z\-']+$",sentence):
+        elif  re.search(r'[a-zA-Z]',sentence):
             return False 
         
         # Toooo Doooooo# 
@@ -523,13 +582,23 @@ if __name__ == "__main__":
 
                 file_path=os.path.join(path,file_name)
                 protocol=Protocol(file_name,file_path)
-                for sentence in protocol.speakers_text:
-                    print("Speaker:",sentence.speaker_name)
-                    print("Sentence:",sentence.sentence_text)
-                    print("\n")                
 
+                speakers=protocol.get_all_speakers()
+                for speaker in speakers: 
+                    print(speaker)
+                
+                # for sentence in protocol.speakers_text:
+                #     print("Speaker:",sentence.speaker_name)
+                #     print("Sentence:",sentence.sentence_text)
+                #     print("\n")  
+
+
+
+    # text="עמיר פרץ(ין\"ר ועדת המשנה לענייני העורף)"
+    # print(Protocol.filter_speakrs_names(text))
     
-
+    # name="פרופ' אליק "
+    # print(Protocol.filter_speakrs_names(name))
     
 
     # output_file="knesset_corpus.jsonl"
