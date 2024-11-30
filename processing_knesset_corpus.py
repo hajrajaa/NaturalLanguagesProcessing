@@ -5,7 +5,7 @@ import re
 import pandas as pd 
 from docx import Document
 
-#import json
+import json
 
 
 #%%
@@ -132,6 +132,7 @@ class Sentence:
         self.length=len(sentence_text)
         self.toknes=self.get_toknes()
 
+
     def get_toknes(self):
 
         punctuation={'.',',','?','!',';',':','"',"'",'(',')','-'}
@@ -193,14 +194,6 @@ class Sentence:
 
         return toknes 
     
-
-
-        
-
-            
-
-
-
         
 
     
@@ -221,7 +214,7 @@ class Protocol:
 
         self.speakers_text=self.extract_sentences(file_path)
 
-        self.all_sentences=self.get_all_sentences()
+        #self.all_sentences=self.get_all_sentences()
 
 
         #self.sentences=self.extract_sentences(file_path)
@@ -291,7 +284,7 @@ class Protocol:
 
         curr_doc=Document(file_path)
 
-        speakers_text={}
+        speakers_text=[]
 
 
         for par_index,par in enumerate (curr_doc.paragraphs):
@@ -312,10 +305,25 @@ class Protocol:
                     #print(text)
                     new_speaker=self.filter_speakrs_names(new_speaker)
 
-                    if new_speaker in speakers_text:
-                        speakers_text[new_speaker]+="\n"+text
-                    else:
-                        speakers_text[new_speaker]=text
+                    if  not Protocol.filter_sentence(text):
+                        continue
+
+                    sentences=Protocol.divide_text_into_sentences(text)
+
+                    for sentence in sentences:
+                        if Protocol.filter_sentence(sentence):
+
+                            new_sentence=Sentence(new_speaker,sentence)
+                            if len(new_sentence.toknes)> 4:
+                                speakers_text.append(new_sentence)
+
+
+                    speakers_text.append(Sentence(new_speaker,text))
+
+                    # if new_speaker in speakers_text:
+                    #     speakers_text[new_speaker]+="\n"+text
+                    # else:
+                    #     speakers_text[new_speaker]=text
                    
                   
         return speakers_text
@@ -388,20 +396,20 @@ class Protocol:
 
         return filtered_name.strip()
     
-    # task 1.4 
-    def get_all_sentences(self):
+    # # task 1.4 
+    # def get_all_sentences(self):
 
-        all_sentences=[]
+    #     all_sentences=[]
 
-        for speaker,text in self.speakers_text.items():
+    #     for speaker,text in self.speakers_text.items():
 
-            sentences=Protocol.divide_text_into_sentences(text)
+    #         sentences=Protocol.divide_text_into_sentences(text)
 
-            for sentence in sentences:
+    #         for sentence in sentences:
 
-                all_sentences.append(Sentence(speaker,sentence))
+    #             all_sentences.append(Sentence(speaker,sentence))
 
-        return all_sentences 
+    #     return all_sentences 
 
                        
     @staticmethod                 
@@ -425,10 +433,14 @@ class Protocol:
 
             if char in end_signs:
 
-                
-                if  prev_sent[-2].isdigit():
-                    continue
-                elif char=='.' and prev_sent[-2] in beg_signs:
+                if len(prev_sent)>1 and  prev_sent[-2].isdigit():
+                    # to end with a year or date 
+                    ########## checkkkkk 2a5r 2shy 3mltyyyyy
+                    if re.search(r'\d{4}\.$',prev_sent) or re.search(r'\d{1,2}/\d{1,2}/\d{4}',prev_sent):
+                        pass
+                    else:
+                         continue
+                elif len(prev_sent) >1 and char=='.' and prev_sent[-2] in beg_signs:
                     continue
                 elif Protocol.filter_sentence(prev_sent):
                     sentences.append(prev_sent)
@@ -464,7 +476,20 @@ class Protocol:
         return True 
     
 
-    # task 1.6 
+    # # task 1.7
+    # def extract_valid_sentences(self):
+
+    #     for sentence in self.all_sentences:
+    #         if not Protocol.filter_sentence(sentence.sentence_text):
+    #             self.all_sentences.remove(sentence)
+
+    #         elif len(sentence.toknes) >= 4 :
+    #             self.all_sentences.remove(sentence)
+
+        
+
+
+
 
 
         
@@ -492,74 +517,47 @@ if __name__ == "__main__":
     
     path=r"Knesset_protocols\protocol_for_hw1"
 
+    for file_name in os.listdir(path):
 
-    # file_name="17_ptm_533398.docx"
+        if file_name.endswith(".docx"):
 
-    # protocol=Protocol(file_name,os.path.join(path,file_name))
-    # for sentence in protocol.all_sentences:
-    #     print("speaker:",sentence.speaker_name)
-    #     print("text:",sentence.sentence_text)
+                file_path=os.path.join(path,file_name)
+                protocol=Protocol(file_name,file_path)
+                for sentence in protocol.speakers_text:
+                    print("Speaker:",sentence.speaker_name)
+                    print("Sentence:",sentence.sentence_text)
+                    print("\n")                
 
-    text="לחבר הכנסת - הפתרון הנקודתי שנתנו לפתחת-ניצנה,"
-    text1="המחיר הוא 6,500 ש\"ח, התאריך: 01/01/2024, והשעה 10:50."
-    s=Sentence("לולו",text1)
-
-    toknes=Sentence.get_toknes(s)
-    print(toknes)
-
-
-    # text="ממנה?\""
-
-    # # text="א. אני רגאגאאגאג"
-    # for sentence in Protocol.divide_text_into_sentences(text):
-    #     print(sentence)
-    #     print("\n")
-
-    #print(Protocol.divide_text_into_sentences(text))
-
-
-    # for file_name in os.listdir(path):
-    #     if file_name.endswith('.docx'):
-    #         print(file_name)
-    #         protocol=Protocol(file_name,os.path.join(path,file_name))
-    #         #print(protocol.knesset_num,protocol.protocol_type,protocol.file_name)
-            
-    #         for sentence in protocol.sentences:
-    #             if sentence in None:
-    #                 print("looooooooooooo")
-    #             print("speaker:",sentence.speaker)
-    #             print("text:",sentence.text)
-                
-
-    # speaker='סגן שרת החינוך והתרבות וליד גולדמן'
-    # speaker1=' סגן שר החינוך , התרבות והספורט'
-
-    # print(filter_speakrs_names(speaker))
-    # print(filter_speakrs_names(speaker1))
-
-    # speaker=['השר לקליטת העלייה','שר הכלכלה','סגן השר לביטחון','סגנית מזכיר הכנסת']
-
-    # filtered_speaker=filter_speakrs_names(speaker)
-    # print(filtered_speaker)
-
-
-    # for file_name in os.listdir(path):
-    #      if file_name.endswith('.docx'):        
-    #          print(extract_protocol_num(os.path.join(path,file_name)))
-    
     
 
-  
+    
+
+    # output_file="knesset_corpus.jsonl"
+
+    # with open (output_file,"w",encoding="utf-8") as jsonl_file:
+
+    #     for file_name in os.listdir(path):
+
+    #         if file_name.endswith(".docx"):
+
+    #             file_path=os.path.join(path,file_name)
+    #             protocol=Protocol(file_name,file_path)
 
 
-    # for file_name in os.listdir(protocol_files):
+    #             for sentence in protocol.speakers_text:
 
-    #     protocol=extract_protocol_data(file_name)
-    #     if protocol:
-    #         print(protocol.knesset_num,protocol.protocol_type,protocol.file_name)
-    #     else:
-    #         print(f"invalid file name: {file_name}")
+    #                 json_line={
+    #                     # "protocol_name":protocol.file_name,
+    #                     # "knesset_number":protocol.knesset_num,
+    #                     # "protocol_type":protocol.protocol_type,
+    #                     # "protocol_number":protocol.protocol_num,
+    #                     "spekaer_name":sentence.speaker_name,
+    #                     "sentence_text":sentence.sentence_text
+    #                 }
+    #                 jsonl_file.write(json.dumps(json_line,ensure_ascii=False)+"\n")
 
+
+ 
 
 
 
