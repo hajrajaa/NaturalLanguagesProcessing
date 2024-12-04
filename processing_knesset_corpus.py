@@ -1,9 +1,9 @@
 #%%
-import zipfile
 import os
 import re
-import pandas as pd 
+#import pandas as pd 
 from docx import Document
+import sys
 
 import json
 
@@ -45,9 +45,7 @@ postions_fields={
     'פיתוח הכפר','הבינוי','השיכון','המדע','הטכנולוגיה','ביטחון','החוץ','הבטיחות בדרכים',
     'הגנת הסביבה','קליטת העלייה','נושאים אסטרטגיים','ענייני מודיעין','אזרחים ותיקים','המודיעין','האנרגיה','המים','העלייה','הקליטה','השירותים החברתיים',
     'הביטחון','הפרלמנט האירופי','התשתיות','פנים','הלאומיות','ועדת'
-    # ,
-    # 'והספורט','הספורט','והתרבות ',''
-    # '','','','','','','','','','','','','','','','','',''
+
     }
 
 
@@ -218,14 +216,8 @@ class Sentence:
         
     def toknes_length(self):
 
-        length=0
-
-        for tokne in self.toknes:
-            if tokne==' ':
-                continue 
-            else:
-                length+=1
-        return length 
+        toknes=self.toknes.split()
+        return len(toknes)
     
     
     
@@ -247,7 +239,9 @@ class Protocol:
 
         self.protocol_num=Protocol.extract_protocol_num(file_path)
 
-        self.speakers_text=self.extract_sentences(file_path)
+        self.speakers_text=[]
+
+        #self.speakers_text=self.extract_sentences(file_path)
 
         #self.all_sentences=self.get_all_sentences()
 
@@ -276,7 +270,6 @@ class Protocol:
         else:
                 
                 return None
-    
     
     
     # task 1.2
@@ -315,7 +308,8 @@ class Protocol:
         
 
     # task 1.3 
-    def extract_sentences(self,file_path):
+    @staticmethod
+    def extract_sentences(file_path):
 
         curr_doc=Document(file_path)
 
@@ -333,22 +327,13 @@ class Protocol:
                 if match :
 
                     
-                    
                     new_speaker=match.group(1).strip()
+                    text=Protocol.extract_speaker_text(par_index+1,curr_doc)
+                    new_speaker=Protocol.filter_speakrs_names(new_speaker)
 
-                    #print(new_speaker)
-                    #print(curr_doc.paragraphs[par_index+1].text)
-                    text=self.extract_speaker_text(par_index+1,curr_doc)
                     
-                    
-                    new_speaker=self.filter_speakrs_names(new_speaker)
-                    #print(new_speaker)
                     if new_speaker is not None:
 
-                        # if  not Protocol.filter_sentence(text):
-                        #     continue
-
-                        
 
                         sentences=Protocol.divide_text_into_sentences(text)
                        
@@ -357,44 +342,35 @@ class Protocol:
                             if Protocol.filter_sentence(sentence) :
 
                                 new_sentence=Sentence(new_speaker,sentence)
-                                if new_sentence.length>=4:
-                                    speakers_text.append(new_sentence)
-
-
-                    #speakers_text.append(Sentence(new_speaker,text))
-
-                    # if new_speaker in speakers_text:
-                    #     speakers_text[new_speaker]+="\n"+text
-                    # else:
-                    #     speakers_text[new_speaker]=text
-                   
+                                if new_sentence.length>4:
+                                    speakers_text.append(new_sentence)          
                   
         return speakers_text
     
     @staticmethod
     def extract_speaker_text(par_index,documnet):
 
-        speaker_text="" 
+        speaker_text=[] 
+        paragraphs=documnet.paragraphs
 
-        for par in documnet.paragraphs[par_index:]:
+        for par in paragraphs[par_index:]:
             
-
-            #if (par.text.startswith("\"") and par.text.endswith("\"")) or is_underlined(par) or is_bold(par):
-            if is_underlined(par) or is_bold(par):
-                if par.text.strip():
-                    break
-            elif par.text.startswith("הישיבה ננעלה"): 
+            if par.text.strip() and (
+            par.text.startswith("הישיבה ננעלה") or 
+            par.text.startswith("הצבעה מס'") or 
+            par.text.startswith("הצבעה") or 
+            par.text.startswith("קריאה") or
+            is_underlined(par) or 
+            is_bold(par)):
                 break
-            elif par.text.startswith("הצבעה מס'"):
-                continue 
-            speaker_text+= par.text.strip() 
 
-        return speaker_text
+            if par.text.strip():
+                speaker_text.append(par.text.strip())
+
+        return "".join(speaker_text)
     
     @staticmethod
     def filter_speakrs_names(name):
-
-
         
         fileds=[]
         sorted_keywords= sorted(postions_keywords,key=len,reverse=True)
@@ -420,13 +396,10 @@ class Protocol:
      
         for keyword in sorted_keywords:
 
-            #pattern=rf'\b{re.escape(keyword)}\b'
             pattern=rf'(?:^|\s){re.escape(keyword)}(?:\s|$)'
             if re.search(pattern,filtered_name):
                filtered_name=re.sub(pattern,' ',filtered_name).strip()
-               #break
-    
-            
+               
 
 
         for field in postions_fields:
@@ -466,19 +439,15 @@ class Protocol:
 
     #     return all_sentences 
 
-    def get_all_speakers(self):
+    # def get_all_speakers(self):
 
-        speakers=[]
+    #     speakers=[]
 
-        for sentence in self.speakers_text:
-            if sentence.speaker_name not in speakers:
-                speakers.append(sentence.speaker_name)
+    #     for sentence in self.speakers_text:
+    #         if sentence.speaker_name not in speakers:
+    #             speakers.append(sentence.speaker_name)
 
-        return speakers 
-
- 
-
-
+    #     return speakers 
 
     @staticmethod                 
     def divide_text_into_sentences(text):
@@ -515,7 +484,6 @@ class Protocol:
          return sentences
     
 
-    
     # task 1.5
     @staticmethod 
     def filter_sentence(sentence):
@@ -558,82 +526,122 @@ class Protocol:
 
 
 
+def extract_corpus(file_path):
+
+    corpus=[]
+    for file_name in os.listdir(file_path):
+
+        protocol=Protocol(file_name,file_path)
+        sentences=protocol.extract_sentences(file_path)
+
+        for sentence in sentences:
+            if sentence is not None:
+                line={
+                        "protocol_name":protocol.file_name,
+                    "knesset_number":protocol.knesset_num,
+                    "protocol_type":protocol.protocol_type,
+                    "protocol_number":protocol.protocol_num,
+                    "spekaer_name":sentence.speaker_name,
+                    "sentence_text":sentence.sentence_text
+                }
+                corpus.append(line)
+    return corpus
+
+
+
+
+#%% Main code 
+
+if __name__ == "__main__":
+
+    try:
+
+        if len(sys.argv)==3:
+
+            file_path=sys.argv[1]
+            output_file=sys.argv[2]
+
+            corpus=extract_corpus(file_path)
+
+            with open(output_file,"w",encoding="utf-8") as file:
+                for line in corpus:
+                    line.write(json.dumps(line,ensure_ascii=False)+"\n")
+
+    except Exception as e:
+        raise e
         
-
-
-
-
-
-            
-
-
-
-        
-
-
-
-
-
 
 
 
 #%% Main code
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     
-    path=r"Knesset_protocols"
+#     path=r"Knesset_protocols"
 
-    # for file_name in os.listdir(path):
+#     # all_speakers=[]
 
-    #     if file_name.endswith(".docx"):
+#     # for file_name in os.listdir(path):
+
+#     #     if file_name.endswith(".docx"):
+
+#     #             file_path=os.path.join(path,file_name)
+#     #             protocol=Protocol(file_name,file_path)
+
+#     #             speakers=protocol.get_all_speakers()
+
+#     #             for speaker in speakers:
+#     #                 if speaker not in  all_speakers:
+#     #                     all_speakers.append(speaker)
+                
+#     #             #print(len(speakers))
+#     #             # for speaker in speakers: 
+#     #             #     print(speaker)
+                
+#     #             # for sentence in protocol.speakers_text:
+#     #             #     print("Speaker:",sentence.speaker_name)
+#     #             #     print("Sentence:",sentence.sentence_text)
+    
+    
+#     #             #     print("\n")  
+#     # print(len(all_speakers))
+
+
+#     # text="עמיר פרץ(ין\"ר ועדת המשנה לענייני העורף)"
+#     # print(Protocol.filter_speakrs_names(text))
+    
+#     # name="פרופ' אליק "
+#     # print(Protocol.filter_speakrs_names(name))
+
+#     # text="לילדים?"
+#     # print(Sentence("speaker",text).toknes)
+#     # print(Sentence("speaker",text).length)
+    
+
+    # output_file="knesset_corpus.jsonl"
+
+    # with open (output_file,"w",encoding="utf-8") as jsonl_file:
+
+    #     for file_name in os.listdir(path):
+
+    #         if file_name.endswith(".docx"):
 
     #             file_path=os.path.join(path,file_name)
     #             protocol=Protocol(file_name,file_path)
-
-    #             speakers=protocol.get_all_speakers()
-    #             for speaker in speakers: 
-    #                 print(speaker)
-                
-    #             # for sentence in protocol.speakers_text:
-    #             #     print("Speaker:",sentence.speaker_name)
-    #             #     print("Sentence:",sentence.sentence_text)
-    #             #     print("\n")  
+    #             sentences=protocol.extract_sentences(file_path)
 
 
+    #             for sentence in sentences:
 
-    # text="עמיר פרץ(ין\"ר ועדת המשנה לענייני העורף)"
-    # print(Protocol.filter_speakrs_names(text))
-    
-    # name="פרופ' אליק "
-    # print(Protocol.filter_speakrs_names(name))
-
-    # text="לילדים?"
-    # print(Sentence("speaker",text).toknes)
-    
-
-    output_file="knesset_corpus.jsonl"
-
-    with open (output_file,"w",encoding="utf-8") as jsonl_file:
-
-        for file_name in os.listdir(path):
-
-            if file_name.endswith(".docx"):
-
-                file_path=os.path.join(path,file_name)
-                protocol=Protocol(file_name,file_path)
-
-
-                for sentence in protocol.speakers_text:
-
-                    json_line={
-                        "protocol_name":protocol.file_name,
-                        "knesset_number":protocol.knesset_num,
-                        "protocol_type":protocol.protocol_type,
-                        "protocol_number":protocol.protocol_num,
-                        "spekaer_name":sentence.speaker_name,
-                        "sentence_text":sentence.sentence_text
-                    }
-                    jsonl_file.write(json.dumps(json_line,ensure_ascii=False)+"\n")
+    #                 json_line={
+    #                     "protocol_name":protocol.file_name,
+    #                     "knesset_number":protocol.knesset_num,
+    #                     "protocol_type":protocol.protocol_type,
+    #                     "protocol_number":protocol.protocol_num,
+    #                     "spekaer_name":sentence.speaker_name,
+    #                     "sentence_text":sentence.sentence_text
+    #                 }
+    #                 jsonl_file.write(json.dumps(json_line,ensure_ascii=False)+"\n")
 
 
  
