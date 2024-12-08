@@ -2,6 +2,7 @@
 import os
 import re
 import math
+import random
 import pandas as pd 
 from docx import Document
 from collections import defaultdict,Counter
@@ -180,21 +181,12 @@ def  get_k_n_t_collocation(self,k,n,t,metric="frequency"):
     except Exception as e:
         raise e
        
-# %% section 3.1
 
-def mask_toknes_in_sentences(sentences,x):
-    # sentences : list of sentences
-    # x : precentage of toknes to mask 
 
-    masked_sentences=[]
 
-    percentage=0
-    count=0
 
-    for sentence in sentences:
 
-        toknes=sentence.split()
-        for tokne in toknes:
+
 
 
         
@@ -324,6 +316,66 @@ def save_collocations(plenary_corpus,committee_corpus,output_file):
 
     except Exception as e:
         raise e
+    
+
+# %% section 3.1
+
+def mask_toknes_in_sentences(sentences,x):
+
+    # sentences : list of sentences
+    # x : precentage of toknes to mask 
+
+    masked_sentences=[]
+
+    for sentence in sentences:
+
+        toknes=sentence.split()
+        tokens_len=len(toknes)
+        maske_len= max(1,int(tokens_len* x / 100))
+
+
+        mask_indices=random.sample(range(tokens_len),maske_len)
+
+        for i in mask_indices:
+            toknes[i]='*'
+        masked_sentences.append(" ".join(toknes))
+
+    return masked_sentences 
+
+## section 3.2 
+def save_masked_sentences(corpus):
+
+    orignal_output_file='original_sampled_sents.txt'
+    masked_output_file='masked_sampled_sents.txt'
+
+    try:
+
+        all_sentences=[sentence for sentences in corpus.values() for sentence in sentences]
+
+        sentences=random.sample(all_sentences,10)
+
+        # section a
+        with open(orignal_output_file,'w',encoding='utf-8') as f_out:
+            for sentence in sentences:
+                f_out.write(f"{sentence}\n")
+
+        masked_sentences=mask_toknes_in_sentences(sentences,10)
+        if not masked_sentences:
+            raise ValueError("Empty masked sentenced")
+        
+        # section b 
+        with open(masked_output_file,'w',encoding='utf-8') as f_out:
+             for sentence in masked_sentences:
+                 f_out.write(f"{sentence}\n")
+
+        
+
+
+
+
+    except Exception as e:
+        raise e 
+
 
 
 
@@ -372,6 +424,9 @@ if __name__=='__main__':
         
         ## section 2 
         save_collocations(plenary_model,committee_model,output_file)
+
+        ## section 3 
+        save_masked_sentences(committee_corpus)
     
     except Exception as e:
         raise e
