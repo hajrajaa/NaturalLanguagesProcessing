@@ -128,51 +128,58 @@ class Trigram_LM:
 
 
 # %% section 2.1 
-
-def  get_k_n_t_collocation(corpus,k,n,t,metric="frequency"):
+#???????????????
+def  get_k_n_t_collocation(self,k,n,t,metric="frequency"):
 
     try:
         ngram_counts=Counter()
         protocol_count=defaultdict(set)
-        total_protocol=len(corpus)
-
-        for protocol_id, sentence in enumerate(corpus):
-
-            toknes=sentence.split()
-            ngrams=zip(*[toknes[i:] for i in range(n)])
-
-            for ngram in ngrams:
-                ngram_counts[ngram]+=1
-                protocol_count[ngram].add(protocol_id)
-
-            filtered_ngrams={ngram for ngram in ngram_counts if ngram_counts[ngram]>=t}
-
-            if metric=="frequency":
-
-                ranked_ngrams=sorted(filtered_ngrams.items(),key=lambda x:x[1],reverse=True)
-
-            elif metric=="tfidf":
-                tfidf={}
-                
-                for ngram , f_t_d in filtered_ngrams.items():
-
-                    tf=f_t_d/sum(ngram_counts.values())
-
-                    idf=math.log(total_protocol/ len(protocol_count[ngram]))
-
-                    tfidf[ngram]= tf*idf 
-                
-                ranked_ngrams=sorted(tfidf.items(), key=lambda x:x[1],reverse=True)
-            
-            else :
-                raise ValueError("Invalid index type ")
-            
-            return ranked_ngrams[:k]
+        total_protocol=len(self.corpus)
         
+        for protocol_name,sentences in self.corpus.items():
+
+            for sentence in sentences:
+                toknes=sentence.split()
+                if len(toknes)<n:
+                     continue 
+                ngrams=zip(*[toknes[i:] for i in range(n)])
+
+                for ngram in ngrams:
+                    if any([token in ["<s_0>","<s_1>"] for token in ngram]):
+                        continue
+                    
+                    ngram_counts[ngram]+=1
+                    protocol_count[ngram].add(protocol_name)
+            
+
+        filtered_ngrams={ngram : count for ngram,count in ngram_counts.items() if count>=t}
+        
+
+        if metric=="frequency":
+
+            ranked_ngrams=sorted(filtered_ngrams.items(),key=lambda x:x[1],reverse=True)
+
+        elif metric=="tfidf":
+            tfidf={}
+            
+            for ngram , f_t_d in filtered_ngrams.items():
+
+                tf=f_t_d/sum(ngram_counts.values())
+
+                idf=math.log(total_protocol/ len(protocol_count[ngram]))
+
+                tfidf[ngram]= tf*idf 
+            
+            ranked_ngrams=sorted(tfidf.items(), key=lambda x:x[1],reverse=True)
+        
+        else :
+            raise ValueError("Invalid index type")
+        
+        return ranked_ngrams[:k]
 
     except Exception as e:
         raise e
-        #return []
+       
 
 
 
@@ -196,7 +203,7 @@ def load_corpus(file_path):
     return corpus
 
 
-def save_collocations(plenary_model,committee_corpus,output_file):
+def save_collocations(plenary_corpus,committee_corpus,output_file):
     try:
 
         with open(output_file,'w',encoding='utf-8') as f_out: 
@@ -207,12 +214,15 @@ def save_collocations(plenary_model,committee_corpus,output_file):
 
             f_out.write("Committee corpus:\n")
             committe_collocations_freq=get_k_n_t_collocation(committee_corpus,k=10,n=2,t=5,metric="frequency")
+            print(committe_collocations_freq)
             for ngram in committe_collocations_freq:
+                print(ngram[0])
                 f_out.write(f"{ngram[0]} \n")
             f_out.write("\n")
+            
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_freq=get_k_n_t_collocation(plenary_model,k=10,n=2,t=5,metric="frequency")
+            plenary_collocations_freq=get_k_n_t_collocation(plenary_corpus,k=10,n=2,t=5,metric="frequency")
             for ngram in plenary_collocations_freq:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -226,7 +236,7 @@ def save_collocations(plenary_model,committee_corpus,output_file):
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_tfidf=get_k_n_t_collocation(plenary_model,k=10,n=2,t=5,metric="frequency")
+            plenary_collocations_tfidf=get_k_n_t_collocation(plenary_corpus,k=10,n=2,t=5,metric="frequency")
             for ngram in plenary_collocations_tfidf:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -242,7 +252,7 @@ def save_collocations(plenary_model,committee_corpus,output_file):
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_freq=get_k_n_t_collocation(plenary_model,k=10,n=3,t=5,metric="frequency")
+            plenary_collocations_freq=get_k_n_t_collocation(plenary_corpus,k=10,n=3,t=5,metric="frequency")
             for ngram in plenary_collocations_freq:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -256,7 +266,7 @@ def save_collocations(plenary_model,committee_corpus,output_file):
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_tfidf=get_k_n_t_collocation(plenary_model,k=10,n=3,t=5,metric="frequency")
+            plenary_collocations_tfidf=get_k_n_t_collocation(plenary_corpus,k=10,n=3,t=5,metric="frequency")
             for ngram in plenary_collocations_tfidf:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -274,7 +284,7 @@ def save_collocations(plenary_model,committee_corpus,output_file):
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_freq=get_k_n_t_collocation(plenary_model,k=10,n=4,t=5,metric="frequency")
+            plenary_collocations_freq=get_k_n_t_collocation(plenary_corpus,k=10,n=4,t=5,metric="frequency")
             for ngram in plenary_collocations_freq:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -288,7 +298,7 @@ def save_collocations(plenary_model,committee_corpus,output_file):
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_tfidf=get_k_n_t_collocation(plenary_model,k=10,n=4,t=5,metric="frequency")
+            plenary_collocations_tfidf=get_k_n_t_collocation(plenary_corpus,k=10,n=4,t=5,metric="frequency")
             for ngram in plenary_collocations_tfidf:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -312,22 +322,32 @@ if __name__=='__main__':
         input_file='knesset_corpus.jsonl'
         corpus=load_corpus(input_file)
 
-        plenary_corpus=[]
-        committee_corpus=[]
+        plenary_corpus={}
+        committee_corpus={}
+
+        
 
         for data in corpus:
 
             protocol_type=data['protocol_type']
+            protocol_name=data['protocol_name']
+            sentence=data['sentence_text']
 
             if protocol_type=='plenary':
-                plenary_corpus.append(data['sentence_text'])
 
-            
+                if protocol_name  not in plenary_corpus:
+                    plenary_corpus[protocol_name]=[]
+
+                plenary_corpus[protocol_name].append(sentence)
+
 
             elif protocol_type=='committee':
 
-                committee_corpus.append(data['sentence_text'])
+                if protocol_name not in committee_corpus:
 
+                    committee_corpus[protocol_name]=[]
+                committee_corpus[protocol_name].append(sentence)
+                    
 
         plenary_model=Trigram_LM(plenary_corpus)
 
@@ -335,7 +355,8 @@ if __name__=='__main__':
 
         output_file='knesset_collocations.txt'
 
-        save_collocations(plenary_corpus,committee_corpus,output_file)
+       
+        save_collocations(plenary_model,committee_model,output_file)
     
     except Exception as e:
         raise e
