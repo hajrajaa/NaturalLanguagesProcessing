@@ -128,7 +128,7 @@ class Trigram_LM:
 
 
 # %% section 2.1 
-#???????????????
+# check if correct 
 def  get_k_n_t_collocation(self,k,n,t,metric="frequency"):
 
     try:
@@ -180,6 +180,25 @@ def  get_k_n_t_collocation(self,k,n,t,metric="frequency"):
     except Exception as e:
         raise e
        
+# %% section 3.1
+
+def mask_toknes_in_sentences(sentences,x):
+    # sentences : list of sentences
+    # x : precentage of toknes to mask 
+
+    masked_sentences=[]
+
+    percentage=0
+    count=0
+
+    for sentence in sentences:
+
+        toknes=sentence.split()
+        for tokne in toknes:
+
+
+        
+
 
 
 
@@ -307,11 +326,6 @@ def save_collocations(plenary_corpus,committee_corpus,output_file):
         raise e
 
 
-    
-
-
-
-
 
 # %% Main 
 
@@ -355,7 +369,8 @@ if __name__=='__main__':
 
         output_file='knesset_collocations.txt'
 
-       
+        
+        ## section 2 
         save_collocations(plenary_model,committee_model,output_file)
     
     except Exception as e:
