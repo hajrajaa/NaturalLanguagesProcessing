@@ -1,10 +1,10 @@
 #%%
-import os
-import re
+#import os
+#import re
 import math
 import random
 import pandas as pd 
-from docx import Document
+#from docx import Document
 from collections import defaultdict,Counter
 import sys
 
@@ -21,7 +21,8 @@ class Trigram_LM:
        self.total_toknes=0
 
        # define interpolation weights 
-       self.lamda1,self.lamda2,self.lamda3= 0.7,0.1,0.2
+       self.lamda1,self.lamda2,self.lamda3= 0.95,0.06,0.01
+       #self.lamda1,self.lamda2,self.lamda3= 0.9,0.05,0.05
 
        self._build_model(corpus)
 
@@ -56,12 +57,15 @@ class Trigram_LM:
     # section 1.1 
     def calculate_prob_of_sentence(self,sentence):
 
+        ## add dummy toknes to the sentence
+        #sentence="<s_0>"+ " "+ "<s_1>"+" "+sentence
+
         # checkkkk !!!!!
         toknes=sentence.split()
 
-        ## add dummy toknes to the sentence
-        toknes.insert(0,"<s_0>")
-        toknes.insert(1,"<s_1>")
+       
+        # toknes.insert(0,"<s_0>")
+        # toknes.insert(1,"<s_1>")
       
 
         log_prob=0.0
@@ -73,7 +77,7 @@ class Trigram_LM:
 
             # get the current trigrams
             w1,w2,w3 =toknes[i-2] ,toknes[i-1] ,toknes[i]
-            
+                      
 
             # calculate the trigram probability
             tri_count= self.trigram_counts[(w1,w2)].get(w3,0)
@@ -96,79 +100,84 @@ class Trigram_LM:
     
         return log_prob
     
-    # section 1.2 
-    def  generate_next_token(self,sentence):
-        
+ 
 
 
-        vocab_size=len(self.unigram_counts)
+    def generate_next_token(self,sentence):
+
+        #vocab_size=len(self.unigram_counts)
         probs=defaultdict(float)
 
-        #w1,w2=sentence.split()[-2],sentence.split()[-1]
         toknes=sentence.split()
         
+
+        next_token=""
+      
+        
         if len(toknes)<2:
-            toknes.insert(0,"<s_1>")
+            toknes=["<s_1>"]+toknes
+            #toknes.insert(0,"<s_1>")
         if len(toknes)<1 or toknes[0]!="<s_0>":
-            toknes.insert(0,"<s_0>")
+            #toknes.insert(0,"<s_0>")
+            toknes=["<s_0>"]+toknes
 
         w1,w2=toknes[-2],toknes[-1]
 
-        for token in self.unigram_counts:
+        if len(toknes)>1 : 
 
-            # skip the dummy toknes 
-            if token in ["<s_0>","<s_1>"]:
-                continue
+            for token in self.unigram_counts.keys():
+
+                # skip the dummy toknes 
+                if token in ["<s_0>","<s_1>"]:
+                    continue
+
+                curr_tigram=tuple((w1,w2,token))
+                
+               
+                curr_sentence=curr_tigram[0]+" "+curr_tigram[1] + " "+curr_tigram[2]
             
-            #print(w1,w2)
 
-             # calculate the trigram probability
-            tri_count= self.trigram_counts[(w1,w2)].get(token,0)
-            
-            total_tri= sum(self.trigram_counts[(w1,w2)].values())
-            tri_prob= (tri_count +1)/(total_tri+vocab_size)
-
-            # calculate the bigram probability
-            bi_count=self.bigram_counts[w2].get(token,0)
-            total_bi= sum(self.bigram_counts[w2].values())
-            bi_prob= (bi_count +1)/(total_bi+vocab_size)
-
-            # calculate the unigram probability
-            uni_count=self.unigram_counts.get(token,0)
-            uni_prob= (uni_count+1)/(self.total_toknes + vocab_size)
-
-            # apply linear interpolation 
-            probs[token]= self.lamda1* tri_prob + self.lamda2*bi_prob + self.lamda3*uni_prob
+                probs[token]=self.calculate_prob_of_sentence(curr_sentence)
+              
 
         next_token=max(probs,key=probs.get)
+       
+
         return next_token,probs[next_token]
+
+
+            
+
+
+
 
 
 
 # %% section 2.1 
 # check if correct 
-def  get_k_n_t_collocation(corpus,k,n,t,metric="frequency"):
+def  get_k_n_t_collocation(df_corpus,k,n,t,metric="frequency"):
 
     try:
         ngram_counts=Counter()
         protocol_count=defaultdict(set)
-        total_protocol=len(corpus)
+        total_protocol=len(df_corpus['protocol_name'].unique())
         
-        for protocol_name,sentences in corpus.items():
+        for _,row in df_corpus.iterrows():
+            protocol_name=row['protocol_name']
+            sentence=row['sentence_text']
 
-            for sentence in sentences:
-                toknes=sentence.split()
-                if len(toknes)<n:
-                    continue 
-                ngrams=zip(*[toknes[i:] for i in range(n)])
+            toknes=sentence.split()
+            if len(toknes)<n:
+                continue 
+            ngrams=zip(*[toknes[i:] for i in range(n)])
 
-                for ngram in ngrams:
-                    if any([token in ["<s_0>","<s_1>"] for token in ngram]):
-                        continue
-                    
-                    ngram_counts[ngram]+=1
-                    protocol_count[ngram].add(protocol_name)
-            
+            for ngram in ngrams:
+                if any([token in ["<s_0>","<s_1>"] for token in ngram]):
+                    continue
+                
+                ngram_counts[ngram]+=1
+                protocol_count[ngram].add(protocol_name)
+
 
         filtered_ngrams={ngram : count for ngram,count in ngram_counts.items() if count>=t}
         
@@ -223,7 +232,7 @@ def load_corpus(file_path):
     return corpus
 
 
-def save_collocations(plenary_corpus,committee_corpus,output_file):
+def save_collocations(df_plenary_corpus,df_committee_corpus,output_file):
     try:
 
         with open(output_file,'w',encoding='utf-8') as f_out: 
@@ -233,7 +242,7 @@ def save_collocations(plenary_corpus,committee_corpus,output_file):
             f_out.write("Frequency:\n")
 
             f_out.write("Committee corpus:\n")
-            committe_collocations_freq=get_k_n_t_collocation(committee_corpus,k=10,n=2,t=5,metric="frequency")
+            committe_collocations_freq=get_k_n_t_collocation(df_committee_corpus,k=10,n=2,t=5,metric="frequency")
             #print(committe_collocations_freq)
             for ngram in committe_collocations_freq:
                 #print(ngram[0])
@@ -242,7 +251,7 @@ def save_collocations(plenary_corpus,committee_corpus,output_file):
             
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_freq=get_k_n_t_collocation(plenary_corpus,k=10,n=2,t=5,metric="frequency")
+            plenary_collocations_freq=get_k_n_t_collocation(df_plenary_corpus,k=10,n=2,t=5,metric="frequency")
             for ngram in plenary_collocations_freq:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -250,13 +259,13 @@ def save_collocations(plenary_corpus,committee_corpus,output_file):
             f_out.write("TF-IDF:\n")
             f_out.write("Committee corpus:\n")
 
-            committe_collocations_tfidf=get_k_n_t_collocation(committee_corpus,k=10,n=2,t=5,metric="frequency")
+            committe_collocations_tfidf=get_k_n_t_collocation(df_committee_corpus,k=10,n=2,t=5,metric="frequency")
             for ngram in committe_collocations_tfidf:
                 f_out.write(f"{ngram[0]} \n")
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_tfidf=get_k_n_t_collocation(plenary_corpus,k=10,n=2,t=5,metric="frequency")
+            plenary_collocations_tfidf=get_k_n_t_collocation(df_plenary_corpus,k=10,n=2,t=5,metric="frequency")
             for ngram in plenary_collocations_tfidf:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -266,13 +275,13 @@ def save_collocations(plenary_corpus,committee_corpus,output_file):
             f_out.write("Frequency:\n")
 
             f_out.write("Committee corpus:\n")
-            committe_collocations_freq=get_k_n_t_collocation(committee_corpus,k=10,n=3,t=5,metric="frequency")
+            committe_collocations_freq=get_k_n_t_collocation(df_committee_corpus,k=10,n=3,t=5,metric="frequency")
             for ngram in committe_collocations_freq:
                 f_out.write(f"{ngram[0]} \n")
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_freq=get_k_n_t_collocation(plenary_corpus,k=10,n=3,t=5,metric="frequency")
+            plenary_collocations_freq=get_k_n_t_collocation(df_plenary_corpus,k=10,n=3,t=5,metric="frequency")
             for ngram in plenary_collocations_freq:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -280,13 +289,13 @@ def save_collocations(plenary_corpus,committee_corpus,output_file):
             f_out.write("TF-IDF:\n")
             f_out.write("Committee corpus:\n")
 
-            committe_collocations_tfidf=get_k_n_t_collocation(committee_corpus,k=10,n=3,t=5,metric="frequency")
+            committe_collocations_tfidf=get_k_n_t_collocation(df_committee_corpus,k=10,n=3,t=5,metric="frequency")
             for ngram in committe_collocations_tfidf:
                 f_out.write(f"{ngram[0]} \n")
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_tfidf=get_k_n_t_collocation(plenary_corpus,k=10,n=3,t=5,metric="frequency")
+            plenary_collocations_tfidf=get_k_n_t_collocation(df_plenary_corpus,k=10,n=3,t=5,metric="frequency")
             for ngram in plenary_collocations_tfidf:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -298,13 +307,13 @@ def save_collocations(plenary_corpus,committee_corpus,output_file):
             f_out.write("Frequency:\n")
 
             f_out.write("Committee corpus:\n")
-            committe_collocations_freq=get_k_n_t_collocation(committee_corpus,k=10,n=4,t=5,metric="frequency")
+            committe_collocations_freq=get_k_n_t_collocation(df_committee_corpus,k=10,n=4,t=5,metric="frequency")
             for ngram in committe_collocations_freq:
                 f_out.write(f"{ngram[0]} \n")
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_freq=get_k_n_t_collocation(plenary_corpus,k=10,n=4,t=5,metric="frequency")
+            plenary_collocations_freq=get_k_n_t_collocation(df_plenary_corpus,k=10,n=4,t=5,metric="frequency")
             for ngram in plenary_collocations_freq:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -312,13 +321,13 @@ def save_collocations(plenary_corpus,committee_corpus,output_file):
             f_out.write("TF-IDF:\n")
             f_out.write("Committee corpus:\n")
 
-            committe_collocations_tfidf=get_k_n_t_collocation(committee_corpus,k=10,n=4,t=5,metric="frequency")
+            committe_collocations_tfidf=get_k_n_t_collocation(df_committee_corpus,k=10,n=4,t=5,metric="frequency")
             for ngram in committe_collocations_tfidf:
                 f_out.write(f"{ngram[0]} \n")
             f_out.write("\n")
 
             f_out.write("Plenary corpus:\n") 
-            plenary_collocations_tfidf=get_k_n_t_collocation(plenary_corpus,k=10,n=4,t=5,metric="frequency")
+            plenary_collocations_tfidf=get_k_n_t_collocation(df_plenary_corpus,k=10,n=4,t=5,metric="frequency")
             for ngram in plenary_collocations_tfidf:
                 f_out.write(f"{ngram[0]}\n")
             f_out.write("\n")
@@ -360,9 +369,9 @@ def save_masked_sentences(corpus):
 
     try:
 
-        all_sentences=[sentence for sentences in corpus.values() for sentence in sentences]
+        valid_sentences=[sentence for sentences in corpus.values() for sentence in sentences if len(sentence.split())>=5]
 
-        sentences=random.sample(all_sentences,10)
+        sentences=random.sample(valid_sentences,10)
 
         # section a
         with open(orignal_output_file,'w',encoding='utf-8') as f_out:
@@ -400,11 +409,13 @@ def predict_masked_toknes(lm,masked_sentence):
     
 
     for i in masked_indices:
-            #curr_text=" ".join(curr_toknes[max(0,i-2):i])
-            #curr_text=" ".join(curr_toknes[:i])+" <MASK>"
-            #print(curr_toknes[:i])
-            curr_text=" ".join(curr_toknes[:i])
-            #print(curr_text)
+            
+            if i==0:
+                curr_text=""
+            else:
+                curr_text=" ".join(curr_toknes[:i])
+                    
+                
             next_token,prob=lm.generate_next_token(curr_text)
             curr_toknes[i]=next_token
             predicted_toknes.append(next_token)
@@ -430,8 +441,7 @@ def save_sampled_sentences(plenary_ml,committee_ml,output_file,orignal_sentences
             for i in range(len(orignal_sentences)):
                 f_out.write("original_sentence: ")
                 f_out.write(f"{orignal_sentences[i]}\n")
-                orignal_prob=plenary_ml.calculate_prob_of_sentence(orignal_sentences[i])
-                print(orignal_prob)
+               
                 f_out.write("masked_sentence: ")
                 f_out.write(f"{masked_sentences[i]}\n")
                 f_out.write("plenary_sentence: ")
@@ -441,16 +451,7 @@ def save_sampled_sentences(plenary_ml,committee_ml,output_file,orignal_sentences
                 f_out.write(f"{predicted_sentence}\n")
                 predicted_toknes=",".join(predicted_toknes)
                 f_out.write(f"plenary_tokens: {predicted_toknes} \n")
-                
-
-                ## correct this 
-                # for token in predicted_toknes:
-                #     f_out.write(f"{token}")
-                #     if token!=predicted_toknes[-1]:
-                #         f_out.write(",")
-                #     else:
-                #         f_out.write("\n")
-                
+        
                 plenary_prob=plenary_ml.calculate_prob_of_sentence(predicted_sentence)
                 committee_prob=committee_ml.calculate_prob_of_sentence(predicted_sentence)
                 f_out.write(f"probability of plenary sentence in plenary corpus: {plenary_prob:.2f}\n")
@@ -460,6 +461,55 @@ def save_sampled_sentences(plenary_ml,committee_ml,output_file,orignal_sentences
 
     except Exception as e:
         raise e
+
+
+
+
+def get_perplexity(lm,masked_sentences,orignal_sentences):
+
+    sentence_num=0
+    total_sentence_perp=0.0
+
+    for original_sentence,masked_sentence in zip(orignal_sentences,masked_sentences):
+
+        orignal_tokens=original_sentence.split()
+        masked_toknes=masked_sentence.split()
+
+        masked_indx=[i for i,token in enumerate(masked_toknes) if token=='[*]']
+
+        if not masked_indx or len(masked_toknes)<3:
+            continue
+        sent_log_prob=0.0
+
+        sent_token_count=0
+
+        for i in masked_indx:
+            if i<2:
+                continue
+
+            w1,w2,w3=masked_toknes[i-2],masked_toknes[i-1],orignal_tokens[i]
+            curr_trigram=w1+" "+w2+" "+w3
+
+            curr_prob=lm.calculate_prob_of_sentence(curr_trigram)
+            sent_log_prob+=curr_prob
+            sent_token_count+=1
+
+        if sent_token_count >0:
+            avrg_log_prob=sent_log_prob/sent_token_count
+            curr_perp=math.exp(-avrg_log_prob)
+            total_sentence_perp+=curr_perp
+            sentence_num+=1
+
+    if sentence_num >0:
+        average_perplexity=total_sentence_perp/sentence_num
+    else:
+        average_perplexity= float('inf')
+
+    return average_perplexity
+
+
+
+
 
 
 
@@ -475,7 +525,6 @@ if __name__=='__main__':
         plenary_corpus={}
         committee_corpus={}
 
-        
 
         for data in corpus:
 
@@ -497,7 +546,9 @@ if __name__=='__main__':
 
                     committee_corpus[protocol_name]=[]
                 committee_corpus[protocol_name].append(sentence)
-                    
+
+
+        
 
         plenary_model=Trigram_LM(plenary_corpus)
 
@@ -506,15 +557,31 @@ if __name__=='__main__':
         output_file='knesset_collocations.txt'
 
         
-        ## section 2 
-        #save_collocations(plenary_model.corpus,committee_model.corpus,output_file)
+        ## section 2   ### uncomment to run 
+        # df_corpus=pd.DataFrame(corpus)
+
+       
+        
+        # df_plenary_corpus=df_corpus[df_corpus['protocol_type']=='plenary']
+        # df_committee_corpus=df_corpus[df_corpus['protocol_type']=='committee']
+
+    
+        # save_collocations(df_plenary_corpus,df_committee_corpus,output_file)
 
         ## section 3 
         orignal_sentences,masked_sentences=save_masked_sentences(committee_corpus)
+  
 
         ## section 3.3 
         results_file='sampled_sents_results.txt'
         save_sampled_sentences(plenary_model,committee_model,results_file,orignal_sentences,masked_sentences)
+
+
+        ## section 3.4
+        plenary_prep=get_perplexity(plenary_model,masked_sentences,orignal_sentences)
+        print(f"plenary perplexity: {plenary_prep:.2f}")
+
+       
     
     except Exception as e:
         raise e
