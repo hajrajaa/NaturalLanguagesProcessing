@@ -21,7 +21,7 @@ class Trigram_LM:
        self.total_toknes=0
 
        # define interpolation weights 
-       self.lamda1,self.lamda2,self.lamda3= 0.95,0.06,0.01
+       self.lamda1,self.lamda2,self.lamda3= 0.9,0.099,0.001
        #self.lamda1,self.lamda2,self.lamda3= 0.9,0.05,0.05
 
        self._build_model(corpus)
@@ -133,6 +133,9 @@ class Trigram_LM:
 
                 curr_tigram=tuple((w1,w2,token))
                 
+
+               
+                #curr_sentence=" ".join(curr_tigram)
                
                 curr_sentence=curr_tigram[0]+" "+curr_tigram[1] + " "+curr_tigram[2]
             
@@ -464,52 +467,73 @@ def save_sampled_sentences(plenary_ml,committee_ml,output_file,orignal_sentences
 
 
 
+def get_preplexity(lm,masked_sentences,orignal_sentences):
 
-def get_perplexity(lm,masked_sentences,orignal_sentences):
+    total_preplexity=0.0
+    sentences_num=0
+    
+    for orignal_sentence,masked_sentence in zip(orignal_sentences,masked_sentences):
 
-    sentence_num=0
-    total_sentence_perp=0.0
-
-    for original_sentence,masked_sentence in zip(orignal_sentences,masked_sentences):
-
-        orignal_tokens=original_sentence.split()
+        orignal_toknes=orignal_sentence.split()
         masked_toknes=masked_sentence.split()
 
-        masked_indx=[i for i,token in enumerate(masked_toknes) if token=='[*]']
+        masked_indices=[i for i,curr_tokne in enumerate(masked_toknes)if curr_tokne=='[*]']
+        
 
-        if not masked_indx or len(masked_toknes)<3:
+        if not masked_indices or len(masked_toknes)<3:
             continue
-        sent_log_prob=0.0
 
-        sent_token_count=0
+        sentence_log_prob=0.0
+        sentence_tokne_count=0
 
-        for i in masked_indx:
+        for i in masked_indices:
+
             if i<2:
                 continue
 
-            w1,w2,w3=masked_toknes[i-2],masked_toknes[i-1],orignal_tokens[i]
-            curr_trigram=w1+" "+w2+" "+w3
+            w1,w2,w3=masked_toknes[i-2],masked_toknes[i-1],orignal_toknes[i]
 
-            curr_prob=lm.calculate_prob_of_sentence(curr_trigram)
-            sent_log_prob+=curr_prob
-            sent_token_count+=1
+            trigram=" ".join([w1,w2,w3])
 
-        if sent_token_count >0:
-            avrg_log_prob=sent_log_prob/sent_token_count
-            curr_perp=math.exp(-avrg_log_prob)
-            total_sentence_perp+=curr_perp
-            sentence_num+=1
+            curr_prob=lm.calculate_prob_of_sentence(trigram)
+            sentence_log_prob+=curr_prob
+            sentence_tokne_count+=1
 
-    if sentence_num >0:
-        average_perplexity=total_sentence_perp/sentence_num
+            
+        if sentence_tokne_count>0:
+            avrg_log_prob=sentence_log_prob /sentence_tokne_count
+            sent_preplexity=math.exp(-avrg_log_prob)
+            print(sent_preplexity)
+            total_preplexity+=sent_preplexity
+            sentences_num+=1
+
+
+    if sentences_num>0:
+
+        average_preplexity=total_preplexity /sentences_num
     else:
-        average_perplexity= float('inf')
 
-    return average_perplexity
-
+        average_preplexity=float('inf')
 
 
+    return average_preplexity
 
+
+
+
+def save_preplexity(output_file,preplexity):
+
+    try:
+
+        with open(output_file,'w',encoding='utf-8') as f_out:
+
+            f_out.write(f"{preplexity:.2f}")
+
+    except Exception as e:
+        raise e 
+
+
+   
 
 
 
@@ -525,6 +549,9 @@ if __name__=='__main__':
         plenary_corpus={}
         committee_corpus={}
 
+
+
+        
 
         for data in corpus:
 
@@ -576,10 +603,10 @@ if __name__=='__main__':
         results_file='sampled_sents_results.txt'
         save_sampled_sentences(plenary_model,committee_model,results_file,orignal_sentences,masked_sentences)
 
-
-        ## section 3.4
-        plenary_prep=get_perplexity(plenary_model,masked_sentences,orignal_sentences)
-        print(f"plenary perplexity: {plenary_prep:.2f}")
+        ## section 3.4 
+        plenary_preplexity=get_preplexity(plenary_model,masked_sentences,orignal_sentences)
+        perp_result_file="perplexity_result.txt"
+        save_preplexity(perp_result_file,plenary_preplexity)
 
        
     
