@@ -1,10 +1,8 @@
 #%%
-#import os
-#import re
+import os
 import math
 import random
 import pandas as pd 
-#from docx import Document
 from collections import defaultdict,Counter
 import sys
 
@@ -21,8 +19,8 @@ class Trigram_LM:
        self.total_toknes=0
 
        # define interpolation weights 
-       self.lamda1,self.lamda2,self.lamda3= 0.997,0.002,0.0001
-       #self.lamda1,self.lamda2,self.lamda3= 0.9,0.05,0.05
+       self.lamda1,self.lamda2,self.lamda3= 0.99959,0.0004,0.00001
+       
 
        self._build_model(corpus)
 
@@ -58,11 +56,8 @@ class Trigram_LM:
     def calculate_prob_of_sentence(self,sentence):
 
 
-        # checkkkk !!!!!
+        
         toknes=sentence.split()
-
-       
-      
 
         log_prob=0.0
         size=len(self.unigram_counts)
@@ -106,15 +101,12 @@ class Trigram_LM:
 
         toknes=sentence.split()
         
-
-        #next_token=""
       
-        #### check hereeeee !!!!!
         if len(toknes)<2:
             toknes=["<s_1>"]+toknes
-            #toknes.insert(0,"<s_1>")
+            
         if len(toknes)<1 or toknes[0]!="<s_0>":
-            #toknes.insert(0,"<s_0>")
+            
             toknes=["<s_0>"]+toknes
 
         w1,w2=toknes[-2],toknes[-1]
@@ -214,8 +206,6 @@ def  get_k_n_t_collocation(df_corpus,k,n,t,metric="frequency"):
         raise e
     
         
-
-
 
 
 # %% 
@@ -355,10 +345,16 @@ def mask_toknes_in_sentences(sentences,x):
 
         toknes=sentence.split()
         tokens_len=len(toknes)
-        maske_len= max(1,int(tokens_len* x / 100))
+        mask_len= max(1,int(tokens_len* x / 100))
+
+        valid_indices=[i for i in range(tokens_len) if toknes[i] not in ["<s_0>","<s_1>"]]
+
+        if not valid_indices:
+            masked_sentences.append(" ".join(toknes))
+            continue
 
 
-        mask_indices=random.sample(range(tokens_len),maske_len)
+        mask_indices=random.sample(valid_indices,min(mask_len,len(valid_indices)))
 
         for i in mask_indices:
             toknes[i]='[*]'
@@ -369,8 +365,8 @@ def mask_toknes_in_sentences(sentences,x):
 ## section 3.2 
 def save_masked_sentences(corpus):
 
-    orignal_output_file='original_sampled_sents.txt'
-    masked_output_file='masked_sampled_sents.txt'
+    orignal_output_file=os.path.join(output_dir,'original_sampled_sents.txt')
+    masked_output_file=os.path.join(output_dir,'masked_sampled_sents.txt')
     masked_sentences=[]
 
     try:
@@ -399,17 +395,16 @@ def save_masked_sentences(corpus):
 
     except Exception as e:
         raise e 
-    
 
 ## section 3.3 
 
 def predict_masked_toknes(lm,masked_sentence):
 
 
-    predicted_sentence=[]
     predicted_toknes=[]
 
     curr_toknes=masked_sentence.split()
+    predicted_toknes= curr_toknes.copy()
 
     masked_indices=[i for i in range(len(curr_toknes))if curr_toknes[i]=='[*]']
     
@@ -419,17 +414,15 @@ def predict_masked_toknes(lm,masked_sentence):
             if i==0:
                 curr_text=""
             else:
-                curr_text=" ".join(curr_toknes[:i])
+                curr_text=" ".join(predicted_toknes[:i])
                     
                 
             next_token,prob=lm.generate_next_token(curr_text)
-            curr_toknes[i]=next_token
-            predicted_toknes.append(next_token)
-        
-    predicted_sentence.append(" ".join(curr_toknes))
-    
+            predicted_toknes[i]=next_token
+            
+    predicted_sentence=[predicted_toknes[i] for i in masked_indices]
 
-    return " ".join(predicted_sentence),predicted_toknes
+    return " ".join(predicted_toknes),predicted_sentence
 
 
 
@@ -549,13 +542,21 @@ def save_perplexity(output_file,preplexity):
 if __name__=='__main__':
 
     try:
+        
+        if len(sys.argv)!=3:
+            raise ValueError("Invalid input")
+        
+        input_file=sys.argv[1]
+        output_dir=sys.argv[2]
 
-        input_file='knesset_corpus.jsonl'
+        #ensure the output directory exists
+        os.makedirs(output_dir,exist_ok=True)
         corpus=load_corpus(input_file)
 
         plenary_corpus={}
         committee_corpus={}
 
+     
 
 
         
@@ -588,32 +589,29 @@ if __name__=='__main__':
 
         committee_model=Trigram_LM(committee_corpus)
 
-        output_file='knesset_collocations.txt'
+        
 
         
-        # # section 2   ### uncomment to run 
-        # df_corpus=pd.DataFrame(corpus)
+        ## section 2   
+        df_corpus=pd.DataFrame(corpus)
+        df_plenary_corpus=df_corpus[df_corpus['protocol_type']=='plenary']
+        df_committee_corpus=df_corpus[df_corpus['protocol_type']=='committee']
+        collocations_output_file=os.path.join(output_dir,'knesset_collocations.txt')
+        save_collocations(df_plenary_corpus,df_committee_corpus,collocations_output_file)
 
-       
-        
-        # df_plenary_corpus=df_corpus[df_corpus['protocol_type']=='plenary']
-        # df_committee_corpus=df_corpus[df_corpus['protocol_type']=='committee']
-
-    
-        # save_collocations(df_plenary_corpus,df_committee_corpus,output_file)
 
         ## section 3 
         orignal_sentences,masked_sentences=save_masked_sentences(committee_corpus)
   
 
         ## section 3.3 
-        results_file='sampled_sents_results.txt'
+        results_file=os.path.join(output_dir,'sampled_sents_results.txt')
         predicted_sentences= save_sampled_sentences(plenary_model,committee_model,results_file,orignal_sentences,masked_sentences)
     
 
         ## section 3.4 
         plenary_preplexity=get_perplexity(plenary_model,masked_sentences,predicted_sentences)
-        perp_result_file="perplexity_result.txt"
+        perp_result_file=os.path.join(output_dir,"perplexity_result.txt")
         save_perplexity(perp_result_file,plenary_preplexity)
 
        
