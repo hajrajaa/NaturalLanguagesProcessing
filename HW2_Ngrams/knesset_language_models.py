@@ -21,7 +21,7 @@ class Trigram_LM:
        self.total_toknes=0
 
        # define interpolation weights 
-       self.lamda1,self.lamda2,self.lamda3= 0.9,0.099,0.001
+       self.lamda1,self.lamda2,self.lamda3= 0.997,0.002,0.0001
        #self.lamda1,self.lamda2,self.lamda3= 0.9,0.05,0.05
 
        self._build_model(corpus)
@@ -35,12 +35,12 @@ class Trigram_LM:
 
             for sentence in sentences:
 
-                toknes=sentence.split()
-                ## add dummy toknes to the sentence
-                ## check if need to add space after each dummy toknes 
-                toknes.insert(0,"<s_0>")
-                toknes.insert(1,"<s_1>")
+                 ## add dummy toknes to the sentence
+                sentence="<s_0>"+" "+"s_1"+" "+sentence
 
+                toknes=sentence.split()
+               
+               
                 self.total_toknes+= len(toknes)
 
                 for i in range(len(toknes)):
@@ -57,15 +57,11 @@ class Trigram_LM:
     # section 1.1 
     def calculate_prob_of_sentence(self,sentence):
 
-        ## add dummy toknes to the sentence
-        #sentence="<s_0>"+ " "+ "<s_1>"+" "+sentence
 
         # checkkkk !!!!!
         toknes=sentence.split()
 
        
-        # toknes.insert(0,"<s_0>")
-        # toknes.insert(1,"<s_1>")
       
 
         log_prob=0.0
@@ -111,9 +107,9 @@ class Trigram_LM:
         toknes=sentence.split()
         
 
-        next_token=""
+        #next_token=""
       
-        
+        #### check hereeeee !!!!!
         if len(toknes)<2:
             toknes=["<s_1>"]+toknes
             #toknes.insert(0,"<s_1>")
@@ -132,10 +128,6 @@ class Trigram_LM:
                     continue
 
                 curr_tigram=tuple((w1,w2,token))
-                
-
-               
-                #curr_sentence=" ".join(curr_tigram)
                
                 curr_sentence=curr_tigram[0]+" "+curr_tigram[1] + " "+curr_tigram[2]
             
@@ -149,21 +141,17 @@ class Trigram_LM:
         return next_token,probs[next_token]
 
 
-            
-
-
-
-
-
 
 # %% section 2.1 
 # check if correct 
 def  get_k_n_t_collocation(df_corpus,k,n,t,metric="frequency"):
 
     try:
-        ngram_counts=Counter()
-        protocol_count=defaultdict(set)
-        total_protocol=len(df_corpus['protocol_name'].unique())
+        ngram_counts=Counter()   # total ngrams counter
+        protocols_ngram=defaultdict(set)  # ngrams per protocol
+        total_protocols=len(df_corpus['protocol_name'].unique())   # total number of protocols 
+        curr_tf_protocol=[]  # to store TF per protocol
+        #print(total_protocols)
         
         for _,row in df_corpus.iterrows():
             protocol_name=row['protocol_name']
@@ -172,16 +160,27 @@ def  get_k_n_t_collocation(df_corpus,k,n,t,metric="frequency"):
             toknes=sentence.split()
             if len(toknes)<n:
                 continue 
+
+            # create ngrams
             ngrams=zip(*[toknes[i:] for i in range(n)])
+            ngram_count_protocol=Counter()
 
             for ngram in ngrams:
                 if any([token in ["<s_0>","<s_1>"] for token in ngram]):
                     continue
                 
                 ngram_counts[ngram]+=1
-                protocol_count[ngram].add(protocol_name)
+                protocols_ngram[ngram].add(protocol_name)
+                ngram_count_protocol[ngram]+=1
+
+            # compute the Tf for the current protocol
+            curr_ngrams=sum(ngram_count_protocol.values())
+            for ngram,count in ngram_count_protocol.items():
+                curr_tf=count/curr_ngrams
+                curr_tf_protocol.append(curr_tf)
 
 
+        # filter ngrams - only ngrams with count >= t 
         filtered_ngrams={ngram : count for ngram,count in ngram_counts.items() if count>=t}
         
 
@@ -192,15 +191,19 @@ def  get_k_n_t_collocation(df_corpus,k,n,t,metric="frequency"):
         elif metric=="tfidf":
             tfidf={}
             
-            for ngram , f_t_d in filtered_ngrams.items():
+            for ngram in filtered_ngrams.items():
 
-                tf=f_t_d/sum(ngram_counts.values())
+                # average TF across all protocols 
+                tf=[protocol_tf.get(ngram,0) for protocol_tf in curr_tf_protocol]
+                avg_tf=sum(tf)/len(tf)
 
-                idf=math.log(total_protocol/ len(protocol_count[ngram]))
+                idf=math.log(total_protocols/ (len(protocols_ngram[ngram])+1))
 
-                tfidf[ngram]= tf*idf 
+                tfidf[ngram]= avg_tf*idf 
             
             ranked_ngrams=sorted(tfidf.items(), key=lambda x:x[1],reverse=True)
+
+          
         
         else :
             raise ValueError("Invalid index type")
@@ -439,6 +442,8 @@ def save_sampled_sentences(plenary_ml,committee_ml,output_file,orignal_sentences
 
     try:
 
+        predicted_sentences=[]
+
         with open(output_file,'w',encoding='utf-8') as f_out:
 
             for i in range(len(orignal_sentences)):
@@ -450,6 +455,7 @@ def save_sampled_sentences(plenary_ml,committee_ml,output_file,orignal_sentences
                 f_out.write("plenary_sentence: ")
 
                 predicted_sentence,predicted_toknes=predict_masked_toknes(plenary_ml,masked_sentences[i])
+                predicted_sentences.append(predicted_sentence)
 
                 f_out.write(f"{predicted_sentence}\n")
                 predicted_toknes=",".join(predicted_toknes)
@@ -459,6 +465,8 @@ def save_sampled_sentences(plenary_ml,committee_ml,output_file,orignal_sentences
                 committee_prob=committee_ml.calculate_prob_of_sentence(predicted_sentence)
                 f_out.write(f"probability of plenary sentence in plenary corpus: {plenary_prob:.2f}\n")
                 f_out.write(f"probability of plenary sentence in committee corpus: {committee_prob:.2f}\n")
+        
+        return predicted_sentences
 
 
 
@@ -467,14 +475,14 @@ def save_sampled_sentences(plenary_ml,committee_ml,output_file,orignal_sentences
 
 
 
-def get_preplexity(lm,masked_sentences,orignal_sentences):
+def get_perplexity(lm,masked_sentences,predicted_sentences):
 
-    total_preplexity=0.0
+    total_perplexity=0.0
     sentences_num=0
     
-    for orignal_sentence,masked_sentence in zip(orignal_sentences,masked_sentences):
+    for predicted_sentence,masked_sentence in zip(predicted_sentences,masked_sentences):
 
-        orignal_toknes=orignal_sentence.split()
+        predicted_toknes=predicted_sentence.split()
         masked_toknes=masked_sentence.split()
 
         masked_indices=[i for i,curr_tokne in enumerate(masked_toknes)if curr_tokne=='[*]']
@@ -491,7 +499,7 @@ def get_preplexity(lm,masked_sentences,orignal_sentences):
             if i<2:
                 continue
 
-            w1,w2,w3=masked_toknes[i-2],masked_toknes[i-1],orignal_toknes[i]
+            w1,w2,w3=masked_toknes[i-2],masked_toknes[i-1],predicted_toknes[i]
 
             trigram=" ".join([w1,w2,w3])
 
@@ -502,26 +510,25 @@ def get_preplexity(lm,masked_sentences,orignal_sentences):
             
         if sentence_tokne_count>0:
             avrg_log_prob=sentence_log_prob /sentence_tokne_count
-            sent_preplexity=math.exp(-avrg_log_prob)
-            print(sent_preplexity)
-            total_preplexity+=sent_preplexity
+            sent_perplexity=math.pow(2,-avrg_log_prob)
+            total_perplexity+=sent_perplexity
             sentences_num+=1
 
 
     if sentences_num>0:
 
-        average_preplexity=total_preplexity /sentences_num
+        average_perplexity=total_perplexity /sentences_num
     else:
 
-        average_preplexity=float('inf')
+        average_perplexity=float('inf')
 
 
-    return average_preplexity
+    return average_perplexity
 
 
 
 
-def save_preplexity(output_file,preplexity):
+def save_perplexity(output_file,preplexity):
 
     try:
 
@@ -584,7 +591,7 @@ if __name__=='__main__':
         output_file='knesset_collocations.txt'
 
         
-        ## section 2   ### uncomment to run 
+        # # section 2   ### uncomment to run 
         # df_corpus=pd.DataFrame(corpus)
 
        
@@ -601,12 +608,13 @@ if __name__=='__main__':
 
         ## section 3.3 
         results_file='sampled_sents_results.txt'
-        save_sampled_sentences(plenary_model,committee_model,results_file,orignal_sentences,masked_sentences)
+        predicted_sentences= save_sampled_sentences(plenary_model,committee_model,results_file,orignal_sentences,masked_sentences)
+    
 
         ## section 3.4 
-        plenary_preplexity=get_preplexity(plenary_model,masked_sentences,orignal_sentences)
+        plenary_preplexity=get_perplexity(plenary_model,masked_sentences,predicted_sentences)
         perp_result_file="perplexity_result.txt"
-        save_preplexity(perp_result_file,plenary_preplexity)
+        save_perplexity(perp_result_file,plenary_preplexity)
 
        
     
