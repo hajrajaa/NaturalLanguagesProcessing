@@ -1,0 +1,60 @@
+original_sentence: אנחנו רוצים שהממונה יהיה מפקח עבודה בכיר .
+masked_sentence: אנחנו רוצים שהממונה יהיה מפקח [*] בכיר .
+plenary_sentence: אנחנו רוצים שהממונה יהיה מפקח , בכיר .
+plenary_tokens: , 
+probability of plenary sentence in plenary corpus: -66.39
+probability of plenary sentence in committee corpus: -61.89
+original_sentence: איך הם ידעו שהמחיר של החברה השנייה הוא ב - 27,000 שקלים פחות ?
+masked_sentence: איך הם ידעו שהמחיר של החברה השנייה [*] ב - 27,000 שקלים פחות ?
+plenary_sentence: איך הם ידעו שהמחיר של החברה השנייה , ב - 27,000 שקלים פחות ?
+plenary_tokens: , 
+probability of plenary sentence in plenary corpus: -128.56
+probability of plenary sentence in committee corpus: -116.90
+original_sentence: אני חושבת שמי שמכיר את מה שמאפיין עבודות נשים בתעשייה מבין את ההבדלים , נשים לרוב עובדות בעבודה חוזרנית של מיון ושל אריזה , פחות מאשר נשיאה ולכן אנחנו רואים את ההבדלים האלה .
+masked_sentence: אני [*] שמי שמכיר את מה שמאפיין עבודות [*] בתעשייה מבין את ההבדלים , נשים לרוב עובדות בעבודה חוזרנית של מיון ושל אריזה , פחות [*] נשיאה ולכן אנחנו רואים את ההבדלים האלה .
+plenary_sentence: אני רוצה שמי שמכיר את מה שמאפיין עבודות , בתעשייה מבין את ההבדלים , נשים לרוב עובדות בעבודה חוזרנית של מיון ושל אריזה , פחות מ נשיאה ולכן אנחנו רואים את ההבדלים האלה .
+plenary_tokens: רוצה,,,מ 
+probability of plenary sentence in plenary corpus: -348.39
+probability of plenary sentence in committee corpus: -321.76
+original_sentence: הייתה החלטת ממשלה , סוכלה ברשות המסים ודווחה כבוצעה למרות שהיא לא בוצעה .
+masked_sentence: הייתה החלטת ממשלה , סוכלה ברשות המסים ודווחה כבוצעה למרות שהיא לא [*] .
+plenary_sentence: הייתה החלטת ממשלה , סוכלה ברשות המסים ודווחה כבוצעה למרות שהיא לא טובה .
+plenary_tokens: טובה 
+probability of plenary sentence in plenary corpus: -128.71
+probability of plenary sentence in committee corpus: -118.86
+original_sentence: אם בונים מבנים שמתאימים לגנים , למה לא תאפשרו גם לגנים הפרטיים להיות בתוכם ?
+masked_sentence: אם [*] מבנים שמתאימים לגנים , למה לא תאפשרו גם לגנים הפרטיים להיות בתוכם ?
+plenary_sentence: אם כן מבנים שמתאימים לגנים , למה לא תאפשרו גם לגנים הפרטיים להיות בתוכם ?
+plenary_tokens: כן 
+probability of plenary sentence in plenary corpus: -141.10
+probability of plenary sentence in committee corpus: -129.34
+original_sentence: בגלל זה קשרנו בין שני הדברים .
+masked_sentence: בגלל זה קשרנו בין [*] הדברים .
+plenary_sentence: בגלל זה קשרנו בין - הדברים .
+plenary_tokens: - 
+probability of plenary sentence in plenary corpus: -55.28
+probability of plenary sentence in committee corpus: -51.90
+original_sentence: בימים הקרובים נסכם את התוכנית , נאשר אותה אצל השר ונצא לדרך .
+masked_sentence: בימים הקרובים נסכם את התוכנית , נאשר [*] אצל השר ונצא לדרך .
+plenary_sentence: בימים הקרובים נסכם את התוכנית , נאשר , אצל השר ונצא לדרך .
+plenary_tokens: , 
+probability of plenary sentence in plenary corpus: -121.04
+probability of plenary sentence in committee corpus: -110.37
+original_sentence: כאן מחזירים עוד פעם את הכדור לרשות המבצעת .
+masked_sentence: כאן מחזירים [*] פעם את הכדור לרשות המבצעת .
+plenary_sentence: כאן מחזירים , פעם את הכדור לרשות המבצעת .
+plenary_tokens: , 
+probability of plenary sentence in plenary corpus: -76.77
+probability of plenary sentence in committee corpus: -71.86
+original_sentence: לא תמיד אנחנו מתייחסים רק לשיקול הזה .
+masked_sentence: לא תמיד אנחנו מתייחסים רק [*] הזה .
+plenary_sentence: לא תמיד אנחנו מתייחסים רק , הזה .
+plenary_tokens: , 
+probability of plenary sentence in plenary corpus: -65.01
+probability of plenary sentence in committee corpus: -61.65
+original_sentence: שלום לכולם , אני מתכבד לפתוח את הדיון .
+masked_sentence: שלום לכולם , אני מתכבד לפתוח [*] הדיון .
+plenary_sentence: שלום לכולם , אני מתכבד לפתוח את הדיון .
+plenary_tokens: את 
+probability of plenary sentence in plenary corpus: -64.02
+probability of plenary sentence in committee corpus: -56.78
