@@ -19,6 +19,8 @@ class speakerData:
         self.sentences.append(sentence)
         self.sentences_count+=1
 
+    
+
 
 
 
@@ -43,6 +45,32 @@ def load_corpus(file_path):
 
 
 
+## section 2 
+def down_sample(first_speaker,secound_speaker):
+
+    first_speaker_size=first_speaker.sentences_count
+    secound_speaker_size=secound_speaker.sentences_count
+
+    print(f"First Speaker Size before: {first_speaker_size}")
+    print(f"Secound Speaker Size before: {secound_speaker_size}")
+
+    if first_speaker_size>secound_speaker_size:
+        first_speaker.sentences=random.sample(first_speaker.sentences,secound_speaker_size)
+        first_speaker.sentences_count=secound_speaker_size
+    elif first_speaker_size<secound_speaker_size:
+        secound_speaker.sentences=random.sample(secound_speaker.sentences,first_speaker_size)
+        secound_speaker.sentences_count=first_speaker_size
+
+    print(f"First Speaker Size after: {first_speaker.sentences_count}")
+    print(f"Secound Speaker Size after: {secound_speaker.sentences_count}")
+
+    return first_speaker,secound_speaker
+
+
+
+
+
+
 
 # %% Main 
 
@@ -53,7 +81,7 @@ if __name__=='__main__':
         corpus=load_corpus(input_file)
 
         
-
+        # section 1 
         speaker_counter=Counter()
         for data in corpus:
 
@@ -86,6 +114,17 @@ if __name__=='__main__':
                secound_speaker.add_sentence(data)
            else:
                 other_spekaers.add_sentence(data)
+
+        # section 2 - down sample the data 
+        first_speaker,secound_speaker=down_sample(first_speaker,secound_speaker)
+
+        first_speaker,other_spekaers=down_sample(first_speaker,other_spekaers)
+
+        if other_spekaers.sentences_count!=secound_speaker.sentences_count:
+            secound_speaker=down_sample(secound_speaker,other_spekaers)
+
+
+
               
    
     except Exception as e:
