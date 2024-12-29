@@ -350,24 +350,43 @@ class Protocol:
     @staticmethod
     def extract_speaker_text(par_index,documnet):
 
-        speaker_text=[] 
-        paragraphs=documnet.paragraphs
+        # speaker_text=[] 
+        # paragraphs=documnet.paragraphs
 
-        for par in paragraphs[par_index:]:
+        # for par in paragraphs[par_index:]:
             
-            if par.text.strip() and (
-            par.text.startswith("הישיבה ננעלה") or 
-            par.text.startswith("הצבעה מס'") or 
-            par.text.startswith("הצבעה") or 
-            par.text.startswith("קריאה") or
-            is_underlined(par) or 
-            is_bold(par)):
+        #     if par.text.strip() and (
+        #     #par.text.startswith("הישיבה ננעלה") or 
+        #     par.text.startswith("הצבעה מס'") or 
+        #     par.text.startswith("הצבעה") or 
+        #     par.text.startswith("קריאה") or
+        #     is_underlined(par) or 
+        #     is_bold(par)):
+        #         break
+
+        #     if par.text.strip():
+        #         speaker_text.append(par.text.strip())
+
+        # return "".join(speaker_text)
+
+        speaker_text="" 
+
+        for par in documnet.paragraphs[par_index:]:
+            
+
+            if par.text.startswith("\"") and par.text.endswith("\""):
                 break
+            #if (par.text.startswith("\"") and par.text.endswith("\"")) or is_underlined(par) or is_bold(par):
+            if is_underlined(par) or is_bold(par):
+                if par.text.strip():
+                    break
+            elif par.text.startswith("הישיבה ננעלה"): 
+                break
+            elif par.text.startswith("הצבעה מס'"):
+                continue 
+            speaker_text+= par.text.strip() 
 
-            if par.text.strip():
-                speaker_text.append(par.text.strip())
-
-        return "".join(speaker_text)
+        return speaker_text
     
     @staticmethod
     def filter_speakrs_names(name):
@@ -575,73 +594,42 @@ if __name__ == "__main__":
 
 #%% Main code
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
     
-#     path=r"Knesset_protocols"
+    path=r'knesset_protocols'
 
-#     # all_speakers=[]
-
-#     # for file_name in os.listdir(path):
-
-#     #     if file_name.endswith(".docx"):
-
-#     #             file_path=os.path.join(path,file_name)
-#     #             protocol=Protocol(file_name,file_path)
-
-#     #             speakers=protocol.get_all_speakers()
-
-#     #             for speaker in speakers:
-#     #                 if speaker not in  all_speakers:
-#     #                     all_speakers.append(speaker)
-                
-#     #             #print(len(speakers))
-#     #             # for speaker in speakers: 
-#     #             #     print(speaker)
-                
-#     #             # for sentence in protocol.speakers_text:
-#     #             #     print("Speaker:",sentence.speaker_name)
-#     #             #     print("Sentence:",sentence.sentence_text)
     
-    
-#     #             #     print("\n")  
-#     # print(len(all_speakers))
+    print(path)
+    if not(os.path.exists(path)):
+        print("The path does not exist")
 
 
-#     # text="עמיר פרץ(ין\"ר ועדת המשנה לענייני העורף)"
-#     # print(Protocol.filter_speakrs_names(text))
-    
-#     # name="פרופ' אליק "
-#     # print(Protocol.filter_speakrs_names(name))
+        
+    print(os.listdir(path))
+    output_file="knesset_corpus.jsonl"
 
-#     # text="לילדים?"
-#     # print(Sentence("speaker",text).toknes)
-#     # print(Sentence("speaker",text).length)
-    
+    with open (output_file,"w",encoding="utf-8") as jsonl_file:
 
-    # output_file="knesset_corpus.jsonl"
+        for file_name in os.listdir(path):
 
-    # with open (output_file,"w",encoding="utf-8") as jsonl_file:
+            if file_name.endswith(".docx"):
 
-    #     for file_name in os.listdir(path):
-
-    #         if file_name.endswith(".docx"):
-
-    #             file_path=os.path.join(path,file_name)
-    #             protocol=Protocol(file_name,file_path)
-    #             sentences=protocol.extract_sentences(file_path)
+                file_path=os.path.join(path,file_name)
+                protocol=Protocol(file_name,file_path)
+                sentences=protocol.extract_sentences(file_path)
 
 
-    #             for sentence in sentences:
+                for sentence in sentences:
 
-    #                 json_line={
-    #                     "protocol_name":protocol.file_name,
-    #                     "knesset_number":protocol.knesset_num,
-    #                     "protocol_type":protocol.protocol_type,
-    #                     "protocol_number":protocol.protocol_num,
-    #                     "spekaer_name":sentence.speaker_name,
-    #                     "sentence_text":sentence.sentence_text
-    #                 }
-    #                 jsonl_file.write(json.dumps(json_line,ensure_ascii=False)+"\n")
+                    json_line={
+                        "protocol_name":protocol.file_name,
+                        "knesset_number":protocol.knesset_num,
+                        "protocol_type":protocol.protocol_type,
+                        "protocol_number":protocol.protocol_num,
+                        "speaker_name":sentence.speaker_name,
+                        "sentence_text":sentence.sentence_text
+                    }
+                    jsonl_file.write(json.dumps(json_line,ensure_ascii=False)+"\n")
 
 
  
