@@ -7,8 +7,13 @@ import json
 import numpy as np
 import pandas as pd 
 from collections import defaultdict,Counter
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import StratifiedKFold,cross_val_score
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report,accuracy_score
+
 
 
 random.seed(42)
@@ -26,19 +31,19 @@ class speakerData:
         self.sentences.append(sentence)
         self.sentences_count+=1
 
-    ## SECTION 3 :1 - Extract BoW feature vector
-    def extract_BoW_vector(self , vectorizer=None):
+    # ## SECTION 3 :1 - Extract BoW feature vector
+    # def extract_BoW_vector(self , vectorizer=None):
 
-        if not self.sentences:
-            raise ValueError(f"No sentences for  speaker {self.name}")
+    #     if not self.sentences:
+    #         raise ValueError(f"No sentences for  speaker {self.name}")
         
-        if not vectorizer:
-            vectorizer=CountVectorizer()
+    #     if not vectorizer:
+    #         vectorizer=CountVectorizer()
 
-        texts=[sentence['sentence_text'] for sentence in self.sentences if 'sentence_text' in sentence]
-        self.bow_vectors=vectorizer.fit_transform(texts)
+    #     texts=[sentence['sentence_text'] for sentence in self.sentences if 'sentence_text' in sentence]
+    #     self.bow_vectors=vectorizer.fit_transform(texts)
 
-        return vectorizer
+    #     return vectorizer
 
 
 
@@ -69,8 +74,8 @@ def down_sample(first_speaker,secound_speaker):
     first_speaker_size=first_speaker.sentences_count
     secound_speaker_size=secound_speaker.sentences_count
 
-    print(f"First Speaker Size before: {first_speaker_size}")
-    print(f"Secound Speaker Size before: {secound_speaker_size}")
+    # print(f"First Speaker Size before: {first_speaker_size}")
+    # print(f"Secound Speaker Size before: {secound_speaker_size}")
 
     if first_speaker_size>secound_speaker_size:
         first_speaker.sentences=random.sample(first_speaker.sentences,secound_speaker_size)
@@ -79,8 +84,8 @@ def down_sample(first_speaker,secound_speaker):
         secound_speaker.sentences=random.sample(secound_speaker.sentences,first_speaker_size)
         secound_speaker.sentences_count=first_speaker_size
 
-    print(f"First Speaker Size after: {first_speaker.sentences_count}")
-    print(f"Secound Speaker Size after: {secound_speaker.sentences_count}")
+    # print(f"First Speaker Size after: {first_speaker.sentences_count}")
+    # print(f"Secound Speaker Size after: {secound_speaker.sentences_count}")
 
     return first_speaker,secound_speaker
 
@@ -89,51 +94,93 @@ def down_sample(first_speaker,secound_speaker):
 def extract_feature_vector(sentences):
 
     features=[]
+  
 
-    # label_encoder=LabelEncoder()
-    # encoded_speakers=label_encoder.fit_transform([sentence['speaker_name'] for sentence in sentences])
-
-    for i,sentence in enumerate(sentences):
+    for sentence in sentences:
 
         feature_vector={}
 
-        # first feature - protocol type 
-        #feature_vector['speaker_name']=encoded_speakers[i]
-        feature_vector['protocol_type']=sentence.get('protocol_type',None)
+        #fisrt feature - sentence length
+        curr_sentence_txt=sentence.get('sentence_text','')
+        feature_vector['sentence_length']=len(curr_sentence_txt)
 
-        # secound feature - average word length per sentence
-        words=sentence.get('sentence_text',None).split()
+        #secound faeture- protocol number
+        protocol_number=sentence.get('protocol_number',None)
+        feature_vector['protocol_number']=protocol_number
+
+        #third feature- knesset number
+        knesset_number=sentence.get('knesset_number',None)
+        feature_vector['knesset_number']=knesset_number
+
+
+    
+        # fourth feature - average word length per sentence
+        words=curr_sentence_txt.split()
         avg_word_length=sum(len(w) for w in words)/len(words) if words else 0 
         feature_vector['avg_word_length']=avg_word_length
 
-        # third feature - number of words in the sentence
+        # fifth feature - number of words in the sentence
         feature_vector['words_num']=len(words)
 
 
-        #forth feature- number of unique words in the sentence
+        #sixst feature- number of unique words in the sentence
         unique_words=set(words)
         feature_vector['unique_words_num']=len(unique_words)
 
-
-        #fifth feature - number of punctuations marks in the sentence
-        punctuations="'!%().,:;?'-"
-        punctuations_count=sum(1 for w in words if w in punctuations)
+     
+        #seventh feature - number of punctuations marks in the sentence
+        punctuations=r"'!().,;?-\":-%"
+        punctuations_count=sum(1 for char in curr_sentence_txt if char in punctuations )
         feature_vector['punctuations_count']=punctuations_count
 
-        # sixst feature 
-
-        committee_collocations=[('זה','את'),('רוצה','אני'),('דבר','של','בסופו')]
-        plenary_collocations=[('הכנסת','חבר'),('נוכח','אינו'),('ראש',',')]
-
-        all_collocations=committee_collocations+plenary_collocations
-
-        for collocation in all_collocations:
-            collocation_str=''.join(collocation)
-            feature_vector[f'collocation_{collocation_str}']=sentence.get('sentence_text','').count(collocation_str)
+        
+        #eight feature - special words 
+        words=[('ההסתייגות'),('הצבעה'),('סעיף')]
+        #words=[('ההסתייגות'),('סעיף'),('הוועדה'),('קבוצת'),('הצבעה'),('אינו'),('בעד'),('נגד'),('אדוני'),('אני'),('נוכח'),('ממשלה'),('חבר'),('הכנסת')]
+        for word in words:
+            feature_vector[f'special_word_{word}']=curr_sentence_txt.count(word)
 
         features.append(feature_vector)
 
-    return features
+        
+
+    return pd.DataFrame(features)
+
+
+
+def train_model(features,labels):
+    
+    cross_val=StratifiedKFold(n_splits=5, shuffle=True,random_state=42)
+
+    #KNN model
+    knn=KNeighborsClassifier(n_neighbors=5)
+    knn_cv_scores=cross_val_score(knn,features,labels,cv=cross_val,scoring='accuracy')
+    # print("KNN Cross Validation Scores: ",knn_cv_scores)
+    # print("KNN Average Cross Validation Score: ",np.mean(knn_cv_scores))
+
+    #Logistic Regression model
+    lr=LogisticRegression(max_iter=10000)
+    lr_cv_scores=cross_val_score(lr,features,labels,cv=cross_val,scoring='accuracy')
+    # print("Logistic Regression Cross Validation Scores: ",lr_cv_scores)
+    # print("Logistic Regression Average Cross Validation Score: ",np.mean(lr_cv_scores))
+
+    return knn_cv_scores.mean(),lr_cv_scores.mean()
+
+
+# ## SECTION 3 :1 - Extract BoW feature vector
+def extract_BoW_vector(vectorizer=None,sentences=None):
+
+    if not sentences:
+        raise ValueError(f"No sentences ")
+    
+    if not vectorizer:
+        vectorizer=CountVectorizer()
+
+    texts=[sentence['sentence_text'] for sentence in sentences if 'sentence_text' in sentence]
+    bow_vectors=vectorizer.fit_transform(texts)
+
+    return bow_vectors
+
 
     
 
@@ -189,24 +236,77 @@ if __name__=='__main__':
         if other_spekaers.sentences_count!=secound_speaker.sentences_count:
             secound_speaker=down_sample(secound_speaker,other_spekaers)
 
-        print("First Speaker")
-        for sentence in first_speaker.sentences:
-            print(sentence.get("sentence_text",None))
-            print("\n")
+        # print("First Speaker")
+        # for sentence in first_speaker.sentences:
+        #     print(sentence.get("sentence_text",None))
+        # #     print("\n")
        
-        for sentence in secound_speaker.sentences:
-            print(sentence.get("sentence_text",None))
-            print("\n")
+        # for sentence in other_spekaers.sentences:
+        #     print(sentence.get("sentence_text",None))
+        #     print("\n")
+
+        total_sentences=first_speaker.sentences+secound_speaker.sentences+other_spekaers.sentences
+        binary_sentences=first_speaker.sentences+secound_speaker.sentences
         
-
-
-
+        
+        #all_sentences=first_speaker.sentences+secound_speaker.sentences
         # section 3:1 _ extract the BoW feature vectors
-        vectorizer=CountVectorizer()
-        first_speaker.extract_BoW_vector(vectorizer)
-        secound_speaker.extract_BoW_vector(vectorizer)
+        #vectorizer=CountVectorizer()
+        vectorizer=TfidfVectorizer()
+        bow_vector=extract_BoW_vector(vectorizer,total_sentences)
+        binary_bow_vector=extract_BoW_vector(vectorizer,binary_sentences)
+        # first_speaker.extract_BoW_vector(vectorizer)
+        # secound_speaker.extract_BoW_vector(vectorizer)
+        # bow_vectors=np.concatenate([first_speaker.bow_vectors.toarray(),secound_speaker.bow_vectors.toarray()],axis=0)
+        # print(bow_vectors.shape)
 
         #print((first_speaker.bow_vectors.toarray()[1]))
+
+        # section 3:2 - extract the features
+        features_vector=extract_feature_vector(total_sentences)
+        binary_features_vector=extract_feature_vector(binary_sentences)
+        
+        # first_speaker_features=extract_feature_vector(first_speaker.sentences)
+        # secound_speaker_features=extract_feature_vector(secound_speaker.sentences)
+
+        # section 3:3 - train the model
+        
+        first_speaker_df=pd.DataFrame({'sentence:':first_speaker.sentences,'label':first_speaker_name})
+        secound_speaker_df=pd.DataFrame({'sentence:':secound_speaker.sentences,'label':secound_speaker_name})
+        other_speakers_df=pd.DataFrame({'sentence:':other_spekaers.sentences,'label':"other"})
+        combined_df=pd.concat([first_speaker_df,secound_speaker_df,other_speakers_df])
+        combined_binary_df=pd.concat([first_speaker_df,secound_speaker_df])
+
+
+        labels_binary=combined_binary_df['label'].values
+        labels_binary=np.array(labels_binary)
+
+        print("Binary Classification")
+        bow_binary_knn,bow_binary_lr=train_model(binary_bow_vector,labels_binary)
+        print("BoW Classifier Score -knn:  ",bow_binary_knn)
+        print("BoW Classifier Score-lr: ",bow_binary_lr)
+        feature_binary_knn,feature_binary_lr=train_model(binary_features_vector,labels_binary)
+        print("Feature Classifier Score -knn: ",feature_binary_knn)
+        print("Feature Classifier Score -lr: ",feature_binary_lr)
+
+
+        
+
+        
+
+        labels=combined_df['label'].values
+
+        labels=np.array(labels)
+
+        #multi-class classification
+        bow_classifier_knn,bow_classifier_lr=train_model(bow_vector,labels)
+        print("BoW Classifier Score -knn:  ",bow_classifier_knn)
+        print("BoW Classifier Score-lr: ",bow_classifier_lr)
+        feature_classifier_knn,feature_classifier_lr=train_model(features_vector,labels)
+        print("Feature Classifier Score -knn: ",feature_classifier_knn)
+        print("Feature Classifier Score -lr: ",feature_classifier_lr)
+
+        
         
 
               
