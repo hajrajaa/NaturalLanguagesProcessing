@@ -14,8 +14,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report,accuracy_score
 
 
-
-
 random.seed(42)
 np.random.seed(42)
 
@@ -206,28 +204,7 @@ def load_sentences(file_path):
     
     return sentences
 
-# section 1 - get the most common speakers
-def get_common_speakers(corpus):
-    
-    speaker_counter=Counter()
-    for data in corpus:
 
-        speaker_name=data.get("speaker_name",None)
-        if speaker_name:
-            speaker_counter[speaker_name]+=1
-
-    # get the most common speakers
-    most_common_speakers=speaker_counter.most_common(2)
-    
-
-
-    first_speaker_name=most_common_speakers[0][0] if len(most_common_speakers)>0 else None
-    secound_speaker_name=most_common_speakers[1][0] if len(most_common_speakers)>1 else None
-
-    print(f"First Speaker: {first_speaker_name}")
-    print(f"Secound Speaker: {secound_speaker_name}")
-
-    return first_speaker_name,secound_speaker_name 
 
 
 def run_training(sentences,labels,classification_type='Multi') :
@@ -253,6 +230,47 @@ def run_training(sentences,labels,classification_type='Multi') :
     except Exception as e:
         raise e
 
+# section 1 - get the most common speakers
+def get_common_speakers(corpus):
+    
+    speaker_counter=Counter()
+    for data in corpus:
+
+        speaker_name=data.get("speaker_name",None)
+        if speaker_name:
+            speaker_counter[speaker_name]+=1
+
+    # get the most common speakers
+    most_common_speakers=speaker_counter.most_common(2)
+    first_speaker_name=most_common_speakers[0][0] if len(most_common_speakers)>0 else None
+    secound_speaker_name=most_common_speakers[1][0] if len(most_common_speakers)>1 else None
+
+    # print(f"First Speaker: {first_speaker_name}")
+    # print(f"Secound Speaker: {secound_speaker_name}")
+
+    return first_speaker_name,secound_speaker_name 
+
+
+def split_data(first_speaker,secound_speaker,other_speakers,corpus):
+
+    aliases={first_speaker.name:{"ר' ריבלין", "רובי ריבלין", first_speaker.name},
+             secound_speaker.name: {"אברהם בורג" ,secound_speaker.name}
+             }
+
+    for data in corpus:
+        
+        curr_name=data.get("speaker_name",None)
+        
+        if curr_name in aliases[first_speaker.name]:
+            first_speaker.add_sentence(data)
+        elif curr_name in aliases[secound_speaker_name]:
+            secound_speaker.add_sentence(data)
+        else:
+            other_speakers.add_sentence(data)
+
+    return first_speaker,secound_speaker,other_speakers
+
+
 
 
 
@@ -276,27 +294,22 @@ if __name__=='__main__':
         sentences_path='knesset_sentences.txt'
 
         first_speaker_name,secound_speaker_name=get_common_speakers(corpus)
-      
 
         first_speaker=speakerData(first_speaker_name)
         secound_speaker=speakerData(secound_speaker_name)
         other_speakers=speakerData("other")
 
-        for data in corpus:
-          
-           curr_name=data.get("speaker_name",None)
-           
-           if curr_name==first_speaker_name:
-               first_speaker.add_sentence(data)
-           elif curr_name==secound_speaker_name:
-               secound_speaker.add_sentence(data)
-           else:
-                other_speakers.add_sentence(data)
-
-
-        ## add the filter name to get more sentnces !!!!
-
+        # section 1 - split the data 
+        first_speaker,secound_speaker,other_speakers=split_data(first_speaker,secound_speaker,other_speakers,corpus)
+    
+        
         # section 2 - down sample the data 
+        print("DOWN SAMPLING THE DATA:\n")
+        print("size before down sampling:\n")
+        print(f"Size of the First Speaker:{first_speaker.sentences_count}\n")
+        print(f"Size of the Secound Speaker:{secound_speaker.sentences_count}\n")
+        print(f"Size of the Other speakers:{other_speakers.sentences_count}\n")
+
         first_speaker,secound_speaker=down_sample(first_speaker,secound_speaker)
         
         first_speaker,other_spekaers=down_sample(first_speaker,other_speakers)
@@ -304,7 +317,11 @@ if __name__=='__main__':
         if other_spekaers.sentences_count!=secound_speaker.sentences_count:
             secound_speaker=down_sample(secound_speaker,other_spekaers)
 
-        
+        print("*****************************************")
+        print("size after down sampling:\n")
+        print(f"Size of the First Speaker:{first_speaker.sentences_count}\n")
+        print(f"Size of the Secound Speaker:{secound_speaker.sentences_count}\n")
+        print(f"Size of the Other speakers:{other_speakers.sentences_count}\n")
 
         total_sentences=first_speaker.sentences+secound_speaker.sentences+other_spekaers.sentences
         binary_sentences=first_speaker.sentences+secound_speaker.sentences
