@@ -38,10 +38,7 @@ def tokenize_sentences(sentences):
                 filtered_toknes.append(token)
 
 
-            print(filtered_toknes)
-                
-                
-                
+            #print(filtered_toknes)
             tokenized_sentences.append(filtered_toknes)
 
 
@@ -83,10 +80,19 @@ if __name__=='__main__':
         corpus=load_corpus(input_path) 
         
         corpus_sentences=[sentence.get('sentence_text','') for sentence in corpus]
-        corpus_sentences=corpus_sentences[:10]
+        #corpus_sentences=corpus_sentences[:10]
 
         toknes=tokenize_sentences(corpus_sentences)
         #print(toknes)
+
+        # build the word2vec model
+        model=Word2Vec(sentences=toknes,vector_size=50,window=50,min_count=1)
+
+        # save the trained model
+        model.save('knesset_word2vec.model')
+
+        word_vectors=model.wv
+        print(word_vectors['ישראל'])   # get the vector of the word 
         
         
    
