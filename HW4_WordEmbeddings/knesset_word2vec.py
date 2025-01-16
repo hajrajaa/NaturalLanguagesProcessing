@@ -10,36 +10,7 @@ import pandas as pd
 from gensim.models import Word2Vec
 from sklearn.metrics.pairwise import cosine_similarity
 
-
-
-# section 1:1 - Tokenization  (dont forget to rerwite the function )
-def tokenize_sentences(sentences):
-
-    tokenized_sentences = {}
-    
-    try:
-        for sentence in sentences:
-            original_sentence = sentence
-            sentence = re.sub(r"[-_]", " ", sentence)
-            curr_tokens = re.sub(r"[!().:;,?%!]", "", sentence).split()
-            
-            filtered_tokens = []
-            for token in curr_tokens:
-                token = token.strip()
-                if len(token) < 2:
-                    continue
-                elif any(char.isdigit() for char in token):
-                    continue
-                filtered_tokens.append(token)
-
-            tokenized_sentences[original_sentence] = filtered_tokens
-
-    except Exception as e:
-        raise e
-    
-    return tokenized_sentences
-
-
+## SECTION 1 FUNCTIONS
 # Load the corpus
 def load_corpus(file_path):
 
@@ -60,16 +31,84 @@ def load_corpus(file_path):
     
     return corpus
 
+# section 1:1 - Tokenization
+def tokenize_sentences(sentences):
+    ## FIX IT 
+    tokenized_sentences={}
+
+    try:
+        for sentence in sentences:
+            original_sentence=sentence
+            sentence=re.sub(r"[-_]"," ",sentence)
+            curr_toknes=re.sub(r"[!().:;,?%]","",sentence).split(' ')
+
+
+            filtered_toknes=[]
+            for token in curr_toknes:
+                token=token.strip()
+                if len(token)<2:
+                    continue
+                elif any(char.isdigit() for char in token):
+                    continue
+                filtered_toknes.append(token)
+            tokenized_sentences[original_sentence]=filtered_toknes
+
+    except Exception as e:
+        raise e
+    return tokenized_sentences
+
+def build_word2Vec_model(input_path,output_dir):
+
+    os.makedirs(output_dir,exist_ok=True)
+    model_path=os.path.join(output_dir,'knesset_word2vec.model')
+    try:
+        corpus=load_corpus(input_path)
+
+        corpus_sentences=[sentence.get('sentence_text','') for sentence in corpus]
+
+        toknes=tokenize_sentences(corpus_sentences)
+        
+        
+        filtered_toknes=[]
+        for sentence in toknes:
+            filtered_toknes.append(toknes[sentence])
+    
+        if os.path.exists(model_path):
+            model=Word2Vec.load(model_path)
+        
+
+        else:
+             # build the word2vec model
+             model=Word2Vec(sentences=filtered_toknes,vector_size=50,window=5,min_count=3)
+
+             # save the trained model
+             model.save(model_path)
+
+
+        word_vectors=model.wv
+        #print(word_vectors['ישראל'])   # get the vector of the word 
+
+        return model,word_vectors,corpus_sentences,filtered_toknes
+
+    except Exception as e :
+        raise e
+
+
+
+#####################################################################################################################################################################
+
+
 # section 2:1 
-def get_similar_words(words_list,word_vectors,output_dir='output'):
+def get_similar_words(words_list,word_vectors,output_dir):
+
+    ## fix the path for the output 
 
     similar_words={}
-    #print(words_list)
     try:
         #output_path=os.path.join(output_dir,"knesset_similar_words.txt")
         with open("knesset_similar_words.txt",'w',encoding='utf-8') as file:
             for word in words_list:
-                #print(word)
+                
                 similarity_scores={other_word: word_vectors.similarity(word,other_word) for other_word in word_vectors.key_to_index if other_word!=word }
                 
                 sorted_similarty_scores=sorted(similarity_scores.items(),key=lambda item: item[1], reverse=True)
@@ -77,16 +116,15 @@ def get_similar_words(words_list,word_vectors,output_dir='output'):
                 for w,score in sorted_similarty_scores[:4]:
                     file.write(f"({w},{score}),")
                 last_word,last_score=sorted_similarty_scores[4]
-                file.write(f"({last_word},{last_score})\n")
-
-                ## check if we need to return the similarty score . 
-                #similar_words[word]=sorted_similarty_scores
-
+                file.write(f"({last_word},{last_score})")
+                if word!=words_list[-1]:
+                    file.write('\n')
 
     except Exception as e :
         raise e
     
     return similar_words
+
 
 # section 2:2 - sentnce embeddings 
 def get_sentence_embeddings(sentences,word_vectors):
@@ -94,24 +132,25 @@ def get_sentence_embeddings(sentences,word_vectors):
     sentences_embeddings=[]
 
     for sentence in sentences:
-        #sentence=sentence.split()
+        
         sentence_vector=np.zeros(word_vectors.vector_size)
-        k=0   # number of words in the sentence 
+        words_num=0   # number of words in the sentence 
         for token in sentence:
             # to ensure that the token is in the word vectors
             if token in word_vectors.key_to_index.keys():
                 sentence_vector+=word_vectors[token]
-                k+=1
+                words_num+=1
 
-            if k>0 :
-                sentence_vector/=k
+            if words_num>0 :
+                sentence_vector/=words_num
         sentences_embeddings.append(sentence_vector)  
+
     return sentences_embeddings              
 
 
 
 # section 2:3 - get similar sentences
-def get_similar_sentences(choosen_sentneces,sentences_embeddings,word_vectors,toknes,output_dir):
+def get_similar_sentences(choosen_sentneces,sentences_embeddings,word_vectors,output_dir):
 
     #output_path=os.path.join(output_dir,'knesset_similar_sentences.txt')
     try:
@@ -136,113 +175,114 @@ def get_similar_sentences(choosen_sentneces,sentences_embeddings,word_vectors,to
         raise e
       
 
-############################################################################################
-#section 4 - replace red words
-def replace_red_words(word_vectors,red_words_mapping,output_dir):
-    output_path=os.path.join(output_dir,'red_words_sentences.txt')
-    os.makedirs(output_dir,exist_ok=True)
-    replaced_words=[]
-    try:
-        with open('red_words_sentences.txt','w',encoding='utf-8') as file:
 
-            for i,(red_words,sentence) in  enumerate(red_words_mapping.items()):
-                updated_sentence=sentence
-                curr_replacement=[]
-                for red_word in red_words:
-                    if red_word in word_vectors.key_to_index.keys():
-                        similar_word=word_vectors.most_similar(red_word,topn=1)[0][0]
-                        updated_sentence=updated_sentence.replace(red_word,similar_word)
-                        curr_replacement.append((red_word,similar_word))
-                file.write(f"{i+1}: ")
-                file.write(f"{sentence}: {updated_sentence}\n")
-                file.write(f"replaced words: ")
-                for i,(red_word,similar_word) in  enumerate(curr_replacement):
-                    file.write(f"({red_word},{similar_word})")
-                    if i<len(curr_replacement)-1:
-                        file.write(',')
-                file.write('\n')
+##################################################################################################################################################    
+## section 4 - replace red words
+def  replace_red_words(word_vectors,red_words_mapping,output_dir='output'):
+
+    file_path = os.path.join(output_dir, "red_words_sentences.txt")
+
+    positive_words = {
+        'דקות': ['דקות','זמן','אחד'], 'הדיון': ['הדיון','שיחה'], 'הוועדה': ['הוועדה'], 'אני': ['אני'],
+        'ההסכם': ['ההסכם','הוויכוח'], 'בוקר': ['ביום','שבוע','חמישי'], 'פותח': ['מתחיל','מסיים'], 'שלום': ['סליחה','הנכבדים'],
+        'שמחים': ['שמחים','מודיעים'], 'היקר': ['גבר','תיאור'], 'קידום': ['רמה','קידום'], 'מניעה': ['מניעה','מתנגד']
+    }
+    negative_words = {
+        
+        'היקר': ['מחיר'], 'בוקר': ['יומיים','רביעי'], 'קידום': ['פריפריה']
+    }
+    chosen_replacements_index = {
+        'דקות': 2, 'הדיון': 0, 'הוועדה': 0, 'אני': 1,
+        'ההסכם': 2, 'בוקר': 0, 'פותח': 0, 'שלום': 2,
+        'שמחים': 1, 'היקר': 2, 'קידום': 0, 'מניעה': 0
+    }
+    new_sentences = []
+    with open(file_path, 'w', encoding='utf-8') as file:
+        
+        for i,(red_words,sentence) in  enumerate(red_words_mapping.items()):
+            
+            curr_replacement=[]
+            new_sentence = sentence
+            for word in red_words:
                 
+                
+                if word in negative_words:
+                    similar_word = word_vectors.most_similar(positive=positive_words[word], negative=negative_words[word],topn=3)
+                    
+                else:
+                    similar_word = word_vectors.most_similar(positive=positive_words[word], topn=3)
 
-            replaced_words.extend(curr_replacement)
+                print(word,similar_word)
+                
+                replacing_word = similar_word[chosen_replacements_index[word]][0]
+                curr_replacement.append((word,replacing_word))
+                new_sentence = new_sentence.replace(word, replacing_word)
+
+            new_sentences.append(new_sentence)  
+            file.write(f"{i+1}: ")
+            file.write(f"{sentence}: {new_sentence}\n")
+            file.write(f"replaced words: ")
+            for i,(red_word,replaced_word) in  enumerate(curr_replacement):
+                file.write(f"({red_word},{replaced_word})")
+                if i<len(curr_replacement)-1:
+                    file.write(',')
+            file.write('\n')  
 
 
-    except Exception as e :
-        raise e
-    
-    return replaced_words
-    
 
-
-
-
+        
 
 #%% main
 if __name__=='__main__':
-    print("aaaaaaaaaaa")
+    
     try:
         
         input_path='knesset_corpus.jsonl'
-        
-        corpus=load_corpus(input_path) 
-        
-        corpus_sentences=[sentence.get('sentence_text','') for sentence in corpus]
-        
 
         ###########################################################################################################################################
-        # section 1:1
-        toknes=tokenize_sentences(corpus_sentences)
-        filtered_toknes=[]
-        for sentence in toknes:
-            filtered_toknes.append(toknes[sentence])
+        ## SECTION 1 
+        model,word_vectors,corpus_sentences,filtered_toknes=build_word2Vec_model(input_path,'output')
+        
+        ###################################################################################################################################################
+        ## SECTION 2 - SIMILARITY BETWEEN WORDS  AND SENTENCES
+        words_list=[
+            'ישראל','גברת','ממשלה','חבר','בוקר','מים','אסור','רשות','זכויות'
+        ]
+        # to do : fix the path for the output 
+        ## section 2:1 - get the most 5 similar words for each word in the words list 
+        similar_words=get_similar_words(words_list,word_vectors,output_dir='output')
 
+        ## section 2:2 sentence embeddings  
+        sentences_embeddings=get_sentence_embeddings(filtered_toknes,word_vectors)
+
+     
+
+        #section 2:3 - get similar sentences
+        # to do : choose the sentnece not randomly !!!!
+        choosen_sentneces=[
+            " לימוד השפה העברית הוא חובה בבתי-הספר הערביים, אבל עד היום לא הפך לימוד השפה הערבית חובה בבתי-הספר היהודיים.",
+            "ועדת החינוך והתרבות תדון בהצעת חוק הארכיונים (תיקון – הוראות שונות), התשנ\"ה–1995.",
+            "מטרת חוק הדרכים היא להסדיר את השילוט שמוצב לצדי הדרכים.",
+            "חבר הכנסת לס, אני קוראת אותך לסדר בפעם הראשונה.",
+            "בישיבה הקודמת ביקשנו את חוות הדעת של היועץ המשפטי לממשלה וגם היועצת המשפטית לוועדה היתה אמורה לחוות דעתה.",
+            "תודה ליושב-ראש האופוזיציה, ראש הממשלה לשעבר, חבר הכנסת שמעון פרס.",
+            "כל התיקון הזה הוא לגבי בנייה חדשה או על תוספת בנייה במבנים ישנים.",
+            "ביצוע ניסוי לאכיפה אלקטרונית אוטומטית של מהירות ובעבירות חמורות אחרות בשני קטעי כביש בין-עירוניים, כשלב מקדים לקראת הקמת מערכת חדשנית בחלק ניכר מהכבישים הבין-עירוניים בארץ.",
+            " אשפוז ביתי יכול לחסוך הרבה מאוד חולים \"מיותרים\" בבתי החולים, שאפשר יהיה להגיע אליהם.",
+            " הבוקר, לפני שהגעתי לכאן, ראיתי בישיבה מיוחדת עם מפכ\"ל המשטרה את סרטי הווידיאו – מה שהיה בבית-המשפט."
+
+        ]
+        choosen_sentences_toknes=tokenize_sentences(choosen_sentneces)
+        valid_sentences=[(choosen_sentneces,choosen_sentences_toknes) for choosen_sentneces,choosen_sentences_toknes in choosen_sentences_toknes.items() if choosen_sentences_toknes]
         
         
+        # to do : fix the path for the output 
+        get_similar_sentences(valid_sentences,sentences_embeddings,word_vectors,output_dir='output') 
 
-        # section 1:2 
-        # build the word2vec model
-        model=Word2Vec(sentences=filtered_toknes,vector_size=50,window=5,min_count=1)
+        ###################################################################################################################################################
 
-        # save the trained model
-        model.save('knesset_word2vec.model')
-
-        #section 1:3 
-        word_vectors=model.wv
-        # print(word_vectors['ישראל'])   # get the vector of the word 
-        # ##################################################################################################################################################
-        # # section2 - similarity between words 
-        # words_list=[
-        #     'ישראל','גברת','ממשלה','חבר','בוקר','מים','אסור','רשות','זכויות'
-        # ]
-        # # to do : fix the path for the output 
-        # ## section 2:1 - get the most 5 similar words for each word in the words list 
-        # similar_words=get_similar_words(words_list,word_vectors)
-
-        # ## section 2:2 sentence embeddings 
-        # ## check what we should send as input to the function 
-        # sentences_embeddings=get_sentence_embeddings(filtered_toknes,word_vectors)
+        # section 4 : replace red words 
        
-        #print(sentences_embeddings[0])   
-
-
-        # section 2:3 - get similar sentences
-        ## to do : choose the sentnece not randomly !!!!
-        # valid_sentences=[(orignal_sentences,toknes) for orignal_sentences,toknes in toknes.items() if len(toknes)>=4]
-        # choosen_sentneces=random.sample(valid_sentences,min(10,len(valid_sentences)))
-
-        
-        # # to do : fix the path for the output 
-        # get_similar_sentences(choosen_sentneces,sentences_embeddings,word_vectors,toknes,output_dir='output') 
-
-
-        ## section 4 : replace red words 
-        # sentences_with_red_words=[
-        #     ".בעוד מספר דקות נתחיל את הדיון בנושא השבת החטופים",
-        #     "בתור יושבת ראש הוועדה , אני מוכנה להאריך את ההסכם באותם תנאים.",
-        #     "בוקר טוב,אני פותח את הישיבה.",
-        #     "שלום , אנחנו שמחים להודיע שחברינו היקר קיבל קידום.",
-        #     "אין מניעה להמשיך לעסוק בנושא."
-        # ]
-
         red_words_mapping={
         ("דקות","הדיון"):".בעוד מספר דקות נתחיל את הדיון בנושא השבת החטופים",
         ("הוועדה","אני","ההסכם"):"בתור יושבת ראש הוועדה , אני מוכנה להאריך את ההסכם באותם תנאים.",
@@ -252,7 +292,7 @@ if __name__=='__main__':
 
         }
 
-        x=replace_red_words(word_vectors,red_words_mapping,output_dir='output')
+        replace_red_words(word_vectors,red_words_mapping,output_dir='output')
    
     except Exception as e:
         raise e
