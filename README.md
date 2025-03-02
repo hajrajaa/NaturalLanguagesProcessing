@@ -1,2 +1,2 @@
-# NaturalImageProcessing
-Assignment 1 
+# Natural Languages Processing
+Natural Languages Processing University homeworks
